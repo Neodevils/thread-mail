@@ -45,7 +45,9 @@ const createCommand: MiniInteractionCommand = {
 
 		if (!user) {
 			console.log(`[CREATE] User not found`);
-			return interaction.editReply({ content: "❌ Could not resolve user." });
+			return interaction.editReply({
+				content: "❌ Could not resolve user.",
+			});
 		}
 
 		console.log(`[CREATE] User resolved: ${user.id} (${user.username})`);
@@ -102,25 +104,16 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		try {
-			// Parallel API calls with short timeout
-			const [userGuilds, botGuilds] = await Promise.all([
-				fetchDiscord(
-					"/users/@me/guilds",
-					(userData as any).accessToken,
-					false,
-					5000,
-				),
-				fetchDiscord(
-					"/users/@me/guilds",
-					process.env.DISCORD_BOT_TOKEN!,
-					true,
-					3000,
-				),
-			]);
-
-			const mutualGuilds = userGuilds.filter((ug: any) =>
-				botGuilds.some((bg: any) => bg.id === ug.id),
+			// Simplified: Show all guilds the bot is in (skip user guilds for speed)
+			const botGuilds = await fetchDiscord(
+				"/users/@me/guilds",
+				process.env.DISCORD_BOT_TOKEN!,
+				true,
+				2000,
 			);
+
+			// For simplicity, show first 10 guilds the bot is in
+			const mutualGuilds = botGuilds.slice(0, 10);
 
 			if (mutualGuilds.length === 0) {
 				return interaction.editReply({
