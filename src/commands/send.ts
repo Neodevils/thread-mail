@@ -26,43 +26,22 @@ const sendCommand: MiniInteractionCommand = {
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
-		console.log("Send command called");
 		const { options, guild, channel } = interaction;
 		const user = interaction.user ?? interaction.member?.user;
 
-		console.log(
-			"User:",
-			user?.id,
-			"Guild:",
-			guild?.id,
-			"Channel:",
-			channel?.id,
-		);
-
 		if (!user) {
-			console.log("No user found");
 			return interaction.reply({
 				content: "<:Oops:1453370232277307474> Could not resolve user.",
 			});
 		}
 
 		const content = options.getString("content")!;
-		console.log("Content:", content);
 
 		try {
 			const isDM = !guild;
-			console.log("Is DM:", isDM);
 
 			if (isDM) {
-				console.log("Getting user data for:", `user:${user.id}`);
-				const startTime = Date.now();
 				const userData = await db.get(`user:${user.id}`);
-				console.log(
-					"User data retrieved in",
-					Date.now() - startTime,
-					"ms:",
-					userData,
-				);
 
 				if (!userData || !userData.activeTicketId) {
 					return interaction.reply({
@@ -71,14 +50,8 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				const ticketStartTime = Date.now();
 				const ticketData = await db.get(
 					`ticket:${userData.activeTicketId}`,
-				);
-				console.log(
-					"Ticket data retrieved in",
-					Date.now() - ticketStartTime,
-					"ms",
 				);
 
 				if (!ticketData || ticketData.status !== "open") {
@@ -88,21 +61,13 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				const guildStartTime = Date.now();
 				const guildData = await db.get(`guild:${ticketData.guildId}`);
-				console.log(
-					"Guild data retrieved in",
-					Date.now() - guildStartTime,
-					"ms",
-				);
 				const webhookUrl = guildData?.webhookUrl;
 
 				if (webhookUrl) {
 					const webhookUrlWithThread = `${
 						webhookUrl as string
 					}?thread_id=${ticketData.threadId}`;
-					console.log("Sending webhook...");
-					const webhookStartTime = Date.now();
 					const webhookResponse = await fetch(webhookUrlWithThread, {
 						method: "POST",
 						headers: {
@@ -122,14 +87,7 @@ const sendCommand: MiniInteractionCommand = {
 							`Failed to send webhook message: ${webhookResponse.status}`,
 						);
 					}
-					console.log(
-						"Webhook sent in",
-						Date.now() - webhookStartTime,
-						"ms",
-					);
 				} else {
-					console.log("Sending direct API message...");
-					const apiStartTime = Date.now();
 					const response = await fetch(
 						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
 						{
@@ -149,18 +107,12 @@ const sendCommand: MiniInteractionCommand = {
 							`Failed to send message: ${response.status}`,
 						);
 					}
-					console.log(
-						"Direct API message sent in",
-						Date.now() - apiStartTime,
-						"ms",
-					);
 				}
 
 				return interaction.reply({
 					content: `# <:thread:1453370245212536832> Message sent to ticket.\n>>> ${content}`,
 				});
 			} else {
-				console.log("In guild, checking channel...");
 				if (!channel || channel.type !== 12 || !channel.name) {
 					return interaction.reply({
 						content:
