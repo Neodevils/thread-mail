@@ -16,6 +16,9 @@ export const createMenuHandler: MiniInteractionComponent = {
 		const user = interaction.user ?? interaction.member?.user;
 
 		try {
+			// Generate unique ticket ID
+			const ticketId = Date.now().toString();
+
 			// 1. Fetch Guild info to get system_channel_id
 			const guild = await fetchDiscord(
 				`/guilds/${guildId}`,
@@ -41,7 +44,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: "ticket-system",
+						name: `ticket-${ticketId}`,
 						auto_archive_duration: 10080, // 1 week
 						type: 11, // Guild Public Thread
 					}),
@@ -57,8 +60,25 @@ export const createMenuHandler: MiniInteractionComponent = {
 				status: "active",
 			});
 
+			// Store ticket information
+			await db.set(`ticket:${ticketId}`, {
+				ticketId,
+				guildId,
+				userId: user.id,
+				username: user.username,
+				threadId: thread.id,
+				status: "open",
+				createdAt: Date.now(),
+			});
+
+			// Store user's active ticket
+			await db.set(`user:${user.id}`, {
+				activeTicketId: ticketId,
+				guildId,
+			});
+
 			return interaction.reply({
-				content: `✅ Thread <#${thread.id}> created in **${guild.name}**!\n\nTicket system is now ready for this server!`,
+				content: `✅ **Ticket #${ticketId}** created in **${guild.name}**!\n\nThread: <#${thread.id}>\n\nYou can now send messages using \`/send\` command in DMs!`,
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		} catch (error) {

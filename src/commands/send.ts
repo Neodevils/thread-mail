@@ -2,6 +2,8 @@ import {
 	CommandBuilder,
 	CommandContext,
 	IntegrationType,
+	InteractionReplyFlags,
+	MiniPermFlags,
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
@@ -15,8 +17,16 @@ const sendCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
 		.setName("send")
 		.setDescription("Send a message to the ticket system")
-		.setContexts([CommandContext.Guild, CommandContext.Bot, CommandContext.DM])
-		.setIntegrationTypes([IntegrationType.GuildInstall, IntegrationType.UserInstall])
+		.setContexts([
+			CommandContext.Guild,
+			CommandContext.Bot,
+			CommandContext.DM,
+		])
+		.setIntegrationTypes([
+			IntegrationType.GuildInstall,
+			IntegrationType.UserInstall,
+		])
+		.setDefaultMemberPermissions(MiniPermFlags.ManageThreads)
 		.addStringOption((option) =>
 			option
 				.setName("content")
@@ -26,7 +36,7 @@ const sendCommand: MiniInteractionCommand = {
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
-		const { options } = interaction;
+		const { options, guild, channel } = interaction;
 		const user = interaction.user ?? interaction.member?.user;
 
 		if (!user) {
@@ -35,10 +45,132 @@ const sendCommand: MiniInteractionCommand = {
 
 		const content = options.getString("content")!;
 
-		// Simple implementation for now
-		return interaction.reply({
-			content: `📨 **Message from ${user.username}:**\n${content}\n\n*Ticket system will be fully implemented soon!*`,
-		});
+		try {
+			const isDM = !guild;
+
+			if (isDM) {
+				// DM Usage: User sending message to their ticket
+				const userData = await db.get(`user:${user.id}`);
+
+				if (!userData || !userData.activeTicketId) {
+					return interaction.reply({
+						content: "❌ You don't have an active ticket. Use `/create` command in a server first.",
+					});
+				}
+
+				const ticketData = await db.get(`ticket:${userData.activeTicketId}`);
+
+				if (!ticketData || ticketData.status !== "open") {
+					return interaction.reply({
+						content: "❌ Your ticket is not active or doesn't exist.",
+					});
+				}
+
+				// Send message to the ticket thread
+				const response = await fetch(`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`, {
+					method: "POST",
+					headers: {
+						Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						content: `**From ${user.username}:** ${content}`,
+					}),
+				});
+
+				if (!response.ok) {
+					throw new Error(`Failed to send message: ${response.status}`);
+				}
+
+				return interaction.reply({
+					content: "✅ Message sent to your ticket!",
+				});
+
+			} else {
+				// Guild Usage: Staff responding to ticket
+				// Check if we're in a ticket thread
+				if (!channel || !channel.name) {
+					return interaction.reply({
+						content: "❌ This command can only be used in ticket threads.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+
+				// Parse ticket ID from thread name
+				const ticketMatch = channel.name.match(/^ticket-(\d+)$/);
+				if (!ticketMatch) {
+					return interaction.reply({
+						content: "❌ This is not a valid ticket thread.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+
+				const ticketId = ticketMatch[1];
+				const ticketData = await db.get(`ticket:${ticketId}`);
+
+				if (!ticketData || ticketData.status !== "open") {
+					return interaction.reply({
+						content: "❌ This ticket is not active or doesn't exist.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+
+				// Send DM to user
+				try {
+					// Create DM channel
+					const dmResponse = await fetch(`https://discord.com/api/v10/users/@me/channels`, {
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							recipient_id: ticketData.userId,
+						}),
+					});
+
+					if (!dmResponse.ok) {
+						throw new Error(`Failed to create DM: ${dmResponse.status}`);
+					}
+
+					const dmChannel = await dmResponse.json();
+
+					// Send message to DM
+					const messageResponse = await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							content: `**Staff Response:** ${content}`,
+						}),
+					});
+
+					if (!messageResponse.ok) {
+						throw new Error(`Failed to send message: ${messageResponse.status}`);
+					}
+
+					return interaction.reply({
+						content: "✅ Response sent to user via DM!",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+
+				} catch (dmError) {
+					console.error("DM Error:", dmError);
+					return interaction.reply({
+						content: "❌ Could not send DM to user. They may have DMs disabled.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+			}
+
+		} catch (error) {
+			console.error("Error in /send command:", error);
+			return interaction.reply({
+				content: "❌ An error occurred while sending the message.",
+			});
+		}
 	},
 };
 
