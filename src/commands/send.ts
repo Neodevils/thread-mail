@@ -26,7 +26,6 @@ const sendCommand: MiniInteractionCommand = {
 			IntegrationType.GuildInstall,
 			IntegrationType.UserInstall,
 		])
-		.setDefaultMemberPermissions(MiniPermFlags.ManageThreads)
 		.addStringOption((option) =>
 			option
 				.setName("content")
@@ -50,9 +49,13 @@ const sendCommand: MiniInteractionCommand = {
 
 			if (isDM) {
 				// DM Usage: User sending message to their ticket
+				console.log(`[SEND DM] User: ${user.id} (${user.username})`);
+
 				const userData = await db.get(`user:${user.id}`);
+				console.log(`[SEND DM] User data:`, userData);
 
 				if (!userData || !userData.activeTicketId) {
+					console.log(`[SEND DM] No active ticket found for user`);
 					return interaction.reply({
 						content:
 							"❌ You don't have an active ticket. Use `/create` command in a server first.",
@@ -62,8 +65,10 @@ const sendCommand: MiniInteractionCommand = {
 				const ticketData = await db.get(
 					`ticket:${userData.activeTicketId}`,
 				);
+				console.log(`[SEND DM] Ticket data:`, ticketData);
 
 				if (!ticketData || ticketData.status !== "open") {
+					console.log(`[SEND DM] Ticket not active:`, ticketData?.status);
 					return interaction.reply({
 						content:
 							"❌ Your ticket is not active or doesn't exist.",

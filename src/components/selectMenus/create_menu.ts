@@ -76,9 +76,20 @@ export const createMenuHandler: MiniInteractionComponent = {
 				status: "open",
 				createdAt: Date.now(),
 			});
+			console.log(`[CREATE TICKET] Saved ticket: ticket:${ticketId}`, {
+				ticketId,
+				guildId,
+				userId: user.id,
+				username: user.username,
+				threadId: thread.id,
+			});
 
 			// Store user's active ticket
 			await db.set(`user:${user.id}`, {
+				activeTicketId: ticketId,
+				guildId,
+			});
+			console.log(`[CREATE TICKET] Saved user data: user:${user.id}`, {
 				activeTicketId: ticketId,
 				guildId,
 			});
