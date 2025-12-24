@@ -22,7 +22,8 @@ export const createMenuHandler: MiniInteractionComponent = {
 		}
 
 		try {
-			// Check if user already has an open ticket for this guild
+			// TEMP: Skip duplicate check for testing
+			/*
 			const userData = await db.get(`user:${user.id}`);
 			if (userData && userData.activeTicketId) {
 				const existingTicket = await db.get(
@@ -39,13 +40,16 @@ export const createMenuHandler: MiniInteractionComponent = {
 					});
 				}
 			}
+			*/
 
 			// Generate unique ticket ID (still using timestamp for internal use)
 			const ticketId = Date.now().toString();
 
 			// Generate case number (using timestamp mod 10000 for simplicity)
 			const caseNumber = parseInt(ticketId.slice(-4)); // Last 4 digits of timestamp
-			console.log(`[CREATE] ticketId: ${ticketId}, caseNumber: ${caseNumber}`);
+			console.log(
+				`[CREATE] ticketId: ${ticketId}, caseNumber: ${caseNumber}`,
+			);
 
 			// 1. Fetch Guild info to get system_channel_id
 			const guild = await fetchDiscord(
