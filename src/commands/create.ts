@@ -34,29 +34,48 @@ const createCommand: MiniInteractionCommand = {
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
+		console.log(`[CREATE] Command triggered by user: ${interaction.user?.id}`);
+
 		const user = interaction.user ?? interaction.member?.user;
 
 		if (!user) {
+			console.log(`[CREATE] User not found`);
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}
 
+		console.log(`[CREATE] User resolved: ${user.id} (${user.username})`);
 		const safeUser = user!; // We know user exists after the check
 
 		// Check if user already has an active ticket
+		console.log(`[CREATE] Checking for existing tickets...`);
 		const userData = await db.get(safeUser.id);
+		console.log(`[CREATE] User data:`, userData);
+
 		if (userData && userData.activeTicketId) {
-			const existingTicket = await db.get(`ticket:${userData.activeTicketId}`);
+			console.log(`[CREATE] Found active ticket: ${userData.activeTicketId}`);
+			const existingTicket = await db.get(
+				`ticket:${userData.activeTicketId}`,
+			);
+			console.log(`[CREATE] Existing ticket data:`, existingTicket);
+
 			if (existingTicket && existingTicket.status === "open") {
+				console.log(`[CREATE] User has open ticket, rejecting`);
 				return interaction.reply({
-					content: "❌ You already have an open ticket. Use `/send` command in DMs to communicate with staff.",
+					content:
+						"❌ You already have an open ticket. Use `/send` command in DMs to communicate with staff.",
 					flags: [InteractionReplyFlags.Ephemeral],
 				});
 			}
 		}
 
-		// Reply with container mentioning @here
-		// Container for initial message - but we can't use it with select menu
-		// So we'll just use content
+		console.log(`[CREATE] No active ticket found, proceeding...`);
+
+		// Reply immediately with @here mention
+		console.log(`[CREATE] Sending initial reply`);
+		await interaction.reply({
+			content: "@here A new ticket request has been made!",
+		});
+		console.log(`[CREATE] Initial reply sent`);
 
 		// Now check OAuth and show select menu
 		if (!userData || !userData.accessToken) {
@@ -127,10 +146,11 @@ const createCommand: MiniInteractionCommand = {
 				)
 				.toJSON();
 
-		return interaction.editReply({
-			content: "@here A new ticket request has been made!\n\nSelect a server to create a support ticket.\n\n-# Use </send:1453302198086664248> command in DMs to communicate with staff.",
-			components: [menu],
-		});
+			return interaction.editReply({
+				content:
+					"@here A new ticket request has been made!\n\nSelect a server to create a support ticket.\n\n-# Use </send:1453302198086664248> command in DMs to communicate with staff.",
+				components: [menu],
+			});
 		} catch (error) {
 			console.error("Error in /create command:", error);
 			return interaction.editReply({

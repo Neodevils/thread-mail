@@ -84,16 +84,17 @@ const sendCommand: MiniInteractionCommand = {
 				// Send message to the ticket thread with container
 				const userAvatar = user.avatar
 					? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-					: `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
+					: `https://cdn.discordapp.com/embed/avatars/${
+							parseInt(user.id) % 5
+					  }.png`;
 
 				const container = new ContainerBuilder()
 					.addComponent(
-						new SectionBuilder()
-							.addComponent(
-								new TextDisplayBuilder().setContent(
-									`**${user.username}:** ${content}\n\n-# Use </send:1453302198086664248> command in DMs to reply`,
-								),
+						new SectionBuilder().addComponent(
+							new TextDisplayBuilder().setContent(
+								`**${user.username}:** ${content}\n\n-# Use </send:1453302198086664248> command in DMs to reply`,
 							),
+						),
 					)
 					.setAccentColor(0x3498db);
 
