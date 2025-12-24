@@ -57,8 +57,9 @@ const sendCommand: MiniInteractionCommand = {
 
 			if (isDM) {
 				console.log("Getting user data for:", `user:${user.id}`);
+				const startTime = Date.now();
 				const userData = await db.get(`user:${user.id}`);
-				console.log("User data:", userData);
+				console.log("User data retrieved in", Date.now() - startTime, "ms:", userData);
 
 				if (!userData || !userData.activeTicketId) {
 					return interaction.reply({
@@ -67,9 +68,11 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
+				const ticketStartTime = Date.now();
 				const ticketData = await db.get(
 					`ticket:${userData.activeTicketId}`,
 				);
+				console.log("Ticket data retrieved in", Date.now() - ticketStartTime, "ms");
 
 				if (!ticketData || ticketData.status !== "open") {
 					return interaction.reply({
@@ -78,13 +81,17 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
+				const guildStartTime = Date.now();
 				const guildData = await db.get(`guild:${ticketData.guildId}`);
+				console.log("Guild data retrieved in", Date.now() - guildStartTime, "ms");
 				const webhookUrl = guildData?.webhookUrl;
 
 				if (webhookUrl) {
 					const webhookUrlWithThread = `${
 						webhookUrl as string
 					}?thread_id=${ticketData.threadId}`;
+					console.log("Sending webhook...");
+					const webhookStartTime = Date.now();
 					const webhookResponse = await fetch(webhookUrlWithThread, {
 						method: "POST",
 						headers: {
@@ -104,7 +111,10 @@ const sendCommand: MiniInteractionCommand = {
 							`Failed to send webhook message: ${webhookResponse.status}`,
 						);
 					}
+					console.log("Webhook sent in", Date.now() - webhookStartTime, "ms");
 				} else {
+					console.log("Sending direct API message...");
+					const apiStartTime = Date.now();
 					const response = await fetch(
 						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
 						{
@@ -124,6 +134,7 @@ const sendCommand: MiniInteractionCommand = {
 							`Failed to send message: ${response.status}`,
 						);
 					}
+					console.log("Direct API message sent in", Date.now() - apiStartTime, "ms");
 				}
 
 				return interaction.reply({
