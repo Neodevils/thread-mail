@@ -113,18 +113,17 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				// Parse ticket ID from thread name
-				const ticketMatch = channel.name.match(/^ticket-(\d+)$/);
-				if (!ticketMatch) {
+				// Find ticket by thread ID
+				const threadData = await db.get(`thread:${channel.id}`);
+				if (!threadData || !threadData.ticketId) {
 					return interaction.reply({
-						content: "❌ This is not a valid ticket thread.",
+						content:
+							"❌ This is not a valid ticket thread.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
 
-				const ticketId = ticketMatch[1];
-				const ticketData = await db.get(`ticket:${ticketId}`);
-
+				const ticketData = await db.get(`ticket:${threadData.ticketId}`);
 				if (!ticketData || ticketData.status !== "open") {
 					return interaction.reply({
 						content:

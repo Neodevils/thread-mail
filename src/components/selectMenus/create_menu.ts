@@ -25,8 +25,14 @@ export const createMenuHandler: MiniInteractionComponent = {
 			// Check if user already has an open ticket for this guild
 			const userData = await db.get(`user:${user.id}`);
 			if (userData && userData.activeTicketId) {
-				const existingTicket = await db.get(`ticket:${userData.activeTicketId}`);
-				if (existingTicket && existingTicket.status === "open" && existingTicket.guildId === guildId) {
+				const existingTicket = await db.get(
+					`ticket:${userData.activeTicketId}`,
+				);
+				if (
+					existingTicket &&
+					existingTicket.status === "open" &&
+					existingTicket.guildId === guildId
+				) {
 					return interaction.reply({
 						content: `❌ You already have an open ticket in this server! Please use \`/send\` command in DMs to communicate with staff, or wait for your current ticket to be closed.`,
 						flags: [InteractionReplyFlags.Ephemeral],
@@ -34,8 +40,11 @@ export const createMenuHandler: MiniInteractionComponent = {
 				}
 			}
 
-			// Generate unique ticket ID
+			// Generate unique ticket ID (still using timestamp for internal use)
 			const ticketId = Date.now().toString();
+
+			// Generate case number (using timestamp mod 10000 for simplicity)
+			const caseNumber = parseInt(ticketId.slice(-4)); // Last 4 digits of timestamp
 
 			// 1. Fetch Guild info to get system_channel_id
 			const guild = await fetchDiscord(
@@ -62,7 +71,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						name: `ticket-${ticketId}`,
+						name: `#${caseNumber} - ${user.username}`,
 						auto_archive_duration: 10080, // 1 week
 						type: 11, // Guild Public Thread
 					}),
@@ -81,14 +90,21 @@ export const createMenuHandler: MiniInteractionComponent = {
 			// Store ticket information
 			await db.set(`ticket:${ticketId}`, {
 				ticketId,
+				caseNumber,
 				guildId,
 				userId: user.id,
 				username: user.username,
 				threadId: thread.id,
 				status: "open",
 			});
+
+			// Also store by thread ID for quick lookup
+			await db.set(`thread:${thread.id}`, {
+				ticketId,
+			});
 			console.log(`[CREATE TICKET] Saved ticket: ticket:${ticketId}`, {
 				ticketId,
+				caseNumber,
 				guildId,
 				userId: user.id,
 				username: user.username,

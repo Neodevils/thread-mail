@@ -39,17 +39,22 @@ const closeCommand: MiniInteractionCommand = {
 		}
 
 		try {
-			// Parse ticket ID from thread name
-			const ticketMatch = channel.name.match(/^ticket-(\d+)$/);
-			if (!ticketMatch) {
+			// Find ticket by thread ID
+			const threadData = await db.get(`thread:${channel.id}`);
+			if (!threadData || !threadData.ticketId) {
 				return interaction.reply({
 					content: "❌ This is not a valid ticket thread.",
 					flags: [InteractionReplyFlags.Ephemeral],
 				});
 			}
 
-			const ticketId = ticketMatch[1];
-			const ticketData = await db.get(`ticket:${ticketId}`);
+			const ticketData = await db.get(`ticket:${threadData.ticketId}`);
+			if (!ticketData) {
+				return interaction.reply({
+					content: "❌ Ticket data not found.",
+					flags: [InteractionReplyFlags.Ephemeral],
+				});
+			}
 
 			if (!ticketData) {
 				return interaction.reply({
@@ -59,10 +64,12 @@ const closeCommand: MiniInteractionCommand = {
 			}
 
 			// Update ticket status to closed
-			await db.update(`ticket:${ticketId}`, { status: "closed" });
+			await db.update(`ticket:${threadData.ticketId}`, { status: "closed" });
 
 			// Clear user's active ticket
-			await db.update(`user:${ticketData.userId}`, { activeTicketId: null });
+			await db.update(`user:${ticketData.userId}`, {
+				activeTicketId: null,
+			});
 
 			// Archive and lock the thread
 			const response = await fetch(
@@ -118,7 +125,10 @@ const closeCommand: MiniInteractionCommand = {
 					);
 				}
 			} catch (dmError) {
-				console.log("Could not send DM to user about ticket closure:", dmError);
+				console.log(
+					"Could not send DM to user about ticket closure:",
+					dmError,
+				);
 			}
 
 			return interaction.reply({
