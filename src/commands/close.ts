@@ -4,9 +4,6 @@ import {
 	IntegrationType,
 	InteractionReplyFlags,
 	MiniPermFlags,
-	ContainerBuilder,
-	TextDisplayBuilder,
-	SectionBuilder,
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
@@ -68,9 +65,13 @@ const closeCommand: MiniInteractionCommand = {
 				content: `<:thread_archive_server:1453370235536281713> **Archived the ticket.**`,
 			});
 
-			await db.update(`user:${ticketData.userId}`, {
-				activeTicketId: null,
-			});
+			const userData = await db.get(`user:${ticketData.userId}`);
+			if (userData) {
+				await db.set(`user:${ticketData.userId}`, {
+					...userData,
+					activeTicketId: null,
+				});
+			}
 
 			const response = await fetch(
 				`https://discord.com/api/v10/channels/${channel.id}`,
@@ -81,8 +82,8 @@ const closeCommand: MiniInteractionCommand = {
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
-						archived: true,
 						locked: true,
+						archived: true,
 					}),
 				},
 			);
@@ -92,6 +93,7 @@ const closeCommand: MiniInteractionCommand = {
 			}
 
 			try {
+				console.log("[CLOSE] Attempting to send DM to user:", ticketData.userId);
 				const dmResponse = await fetch(
 					`https://discord.com/api/v10/users/@me/channels`,
 					{
@@ -108,8 +110,9 @@ const closeCommand: MiniInteractionCommand = {
 
 				if (dmResponse.ok) {
 					const dmChannel = await dmResponse.json();
+					console.log("[CLOSE] DM channel created:", dmChannel.id);
 
-					await fetch(
+					const messageResponse = await fetch(
 						`https://discord.com/api/v10/channels/${dmChannel.id}/messages`,
 						{
 							method: "POST",
@@ -118,27 +121,22 @@ const closeCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								components: [
-									new ContainerBuilder()
-										.addComponent(
-											new TextDisplayBuilder().setContent(
-												[
-													`## <:thread_archive_user:1453370242381254687> Your ticket has been closed!`,
-													"",
-													"Staff have resolved your issue. If you need further assistance, you can create a new ticket anytime using </create:1453302198086664249> command in the server.",
-												].join("\n"),
-											),
-										)
-										.toJSON(),
-								],
-								flags: [InteractionReplyFlags.IsComponentsV2],
+								content: `## <:thread_archive_user:1453370242381254687> Your ticket has been closed!\n\nStaff have resolved your issue. If you need further assistance, you can create a new ticket anytime using </create:1453302198086664249> command in the server.`,
 							}),
 						},
 					);
+
+					if (messageResponse.ok) {
+						console.log("[CLOSE] DM sent successfully");
+					} else {
+						console.log("[CLOSE] Failed to send DM message:", messageResponse.status);
+					}
+				} else {
+					console.log("[CLOSE] Failed to create DM channel:", dmResponse.status);
 				}
 			} catch (dmError) {
 				console.log(
-					"Could not send DM to user about ticket closure:",
+					"[CLOSE] Could not send DM to user about ticket closure:",
 					dmError,
 				);
 			}
