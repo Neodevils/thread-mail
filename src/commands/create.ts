@@ -164,6 +164,46 @@ const createCommand: MiniInteractionCommand = {
 			});
 		} catch (error) {
 			console.error("Error in /create command:", error);
+
+			// Check if the error is due to unauthorized access (deauthorized account)
+			if (error instanceof Error && error.message.includes("401: Unauthorized")) {
+				const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
+					process.env.DISCORD_APPLICATION_ID
+				}&response_type=code&redirect_uri=${encodeURIComponent(
+					process.env.DISCORD_REDIRECT_URI!,
+				)}&scope=identify+guilds+role_connections.write`;
+
+				const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
+					.addComponents(
+						new ButtonBuilder()
+							.setLabel("Authorize App")
+							.setStyle(ButtonStyle.Link)
+							.setURL(oauthUrl),
+					)
+					.toJSON();
+
+				return interaction.reply({
+					content:
+						"⚠️ Your authorization has expired. Please re-authorize the app to continue.",
+					components: [
+						new ContainerBuilder()
+							.addComponent(
+								new TextDisplayBuilder().setContent(
+									"## <:sharedwithu:1453370234114150542> Authorization Required",
+								),
+							)
+							.addComponent(
+								new TextDisplayBuilder().setContent(
+									"Your previous authorization has expired. Please click the button below to re-authorize.",
+								),
+							)
+							.addComponent(button)
+							.toJSON(),
+					],
+					flags: [InteractionReplyFlags.IsComponentsV2],
+				});
+			}
+
 			return interaction.reply({
 				content:
 					"<:Oops:1453370232277307474> An error occurred while fetching your servers. Please try again later.",
