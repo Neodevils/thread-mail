@@ -7,6 +7,7 @@ import {
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
+import { db } from "../utils/database.ts";
 
 const closeCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
@@ -29,7 +30,7 @@ const closeCommand: MiniInteractionCommand = {
 		const member = interaction.member;
 
 		// Check if we're in a thread
-		if (!channel || channel.type !== 11) {
+		if (!channel || channel.type !== 11 || !channel.name) {
 			// GuildPublicThread
 			return interaction.reply({
 				content: "❌ This command can only be used in ticket threads.",
@@ -38,6 +39,31 @@ const closeCommand: MiniInteractionCommand = {
 		}
 
 		try {
+			// Parse ticket ID from thread name
+			const ticketMatch = channel.name.match(/^ticket-(\d+)$/);
+			if (!ticketMatch) {
+				return interaction.reply({
+					content: "❌ This is not a valid ticket thread.",
+					flags: [InteractionReplyFlags.Ephemeral],
+				});
+			}
+
+			const ticketId = ticketMatch[1];
+			const ticketData = await db.get(`ticket:${ticketId}`);
+
+			if (!ticketData) {
+				return interaction.reply({
+					content: "❌ Ticket data not found.",
+					flags: [InteractionReplyFlags.Ephemeral],
+				});
+			}
+
+			// Update ticket status to closed
+			await db.update(`ticket:${ticketId}`, { status: "closed" });
+
+			// Clear user's active ticket
+			await db.update(`user:${ticketData.userId}`, { activeTicketId: null });
+
 			// Archive and lock the thread
 			const response = await fetch(
 				`https://discord.com/api/v10/channels/${channel.id}`,
@@ -58,8 +84,45 @@ const closeCommand: MiniInteractionCommand = {
 				throw new Error(`Failed to close thread: ${response.status}`);
 			}
 
+			// Send DM to user about ticket closure
+			try {
+				const dmResponse = await fetch(
+					`https://discord.com/api/v10/users/@me/channels`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							recipient_id: ticketData.userId,
+						}),
+					},
+				);
+
+				if (dmResponse.ok) {
+					const dmChannel = await dmResponse.json();
+
+					await fetch(
+						`https://discord.com/api/v10/channels/${dmChannel.id}/messages`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								content: `🔒 **Your ticket has been closed!**\n\nStaff have resolved your issue. If you need further assistance, you can create a new ticket anytime using \`/create\` command in the server.`,
+							}),
+						},
+					);
+				}
+			} catch (dmError) {
+				console.log("Could not send DM to user about ticket closure:", dmError);
+			}
+
 			return interaction.reply({
-				content: `🔒 **Ticket Closed**\n\nThread has been archived and locked by ${user.username}.`,
+				content: `🔒 **Ticket Closed**\n\nThread has been archived and locked by ${user.username}.\nUser has been notified via DM.`,
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		} catch (error) {

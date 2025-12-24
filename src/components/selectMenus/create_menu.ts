@@ -22,6 +22,18 @@ export const createMenuHandler: MiniInteractionComponent = {
 		}
 
 		try {
+			// Check if user already has an open ticket for this guild
+			const userData = await db.get(`user:${user.id}`);
+			if (userData && userData.activeTicketId) {
+				const existingTicket = await db.get(`ticket:${userData.activeTicketId}`);
+				if (existingTicket && existingTicket.status === "open" && existingTicket.guildId === guildId) {
+					return interaction.reply({
+						content: `❌ You already have an open ticket in this server! Please use \`/send\` command in DMs to communicate with staff, or wait for your current ticket to be closed.`,
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+			}
+
 			// Generate unique ticket ID
 			const ticketId = Date.now().toString();
 
