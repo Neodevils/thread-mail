@@ -36,7 +36,17 @@ const createCommand: MiniInteractionCommand = {
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}
 
-		const userData = await db.get(user.id);
+		// Defer immediately to buy more time
+		await interaction.deferReply();
+
+		// Add timeout to database operation
+		const dbPromise = db.get(user.id);
+		const timeoutPromise = new Promise((_, reject) => {
+			setTimeout(() => reject(new Error("Database timeout")), 1000);
+		});
+
+		const userData = await Promise.race([dbPromise, timeoutPromise]) as any;
+
 		if (!userData || !userData.accessToken) {
 			const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
 				process.env.DISCORD_APPLICATION_ID
@@ -53,14 +63,12 @@ const createCommand: MiniInteractionCommand = {
 				)
 				.toJSON();
 
-			return interaction.reply({
+			return interaction.editReply({
 				content:
 					"⚠️ You need to authorize the app first to see your mutual servers.",
 				components: [button],
 			});
 		}
-
-		await interaction.deferReply();
 
 		try {
 			// Use shorter timeout to stay within Discord's 3-second interaction limit
@@ -118,9 +126,14 @@ const createCommand: MiniInteractionCommand = {
 			let errorMessage =
 				"❌ An error occurred while fetching your servers. Please try again later.";
 
-			if (error instanceof Error && error.message.includes("timed out")) {
-				errorMessage =
-					"❌ Server list is taking too long to load. This might be due to Discord API delays. Please try again.";
+			if (error instanceof Error) {
+				if (error.message.includes("timed out") || error.message.includes("timeout")) {
+					errorMessage =
+						"❌ Server list is taking too long to load. This might be due to API delays. Please try again.";
+				} else if (error.message.includes("Database timeout")) {
+					errorMessage =
+						"❌ Database is responding slowly. Please try again.";
+				}
 			}
 
 			return interaction.editReply({
