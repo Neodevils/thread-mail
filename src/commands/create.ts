@@ -39,6 +39,29 @@ const createCommand: MiniInteractionCommand = {
 		// Defer immediately to buy more time
 		await interaction.deferReply();
 
+		// TEMP: Skip database check for testing
+		const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
+			process.env.DISCORD_APPLICATION_ID
+		}&response_type=code&redirect_uri=${encodeURIComponent(
+			process.env.DISCORD_REDIRECT_URI!,
+		)}&scope=identify+guilds+role_connections.write`;
+
+		const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
+			.addComponents(
+				new ButtonBuilder()
+					.setLabel("Authorize App")
+					.setStyle(ButtonStyle.Link)
+					.setURL(oauthUrl),
+			)
+			.toJSON();
+
+		return interaction.editReply({
+			content:
+				"✅ Test: Command is working! Database check temporarily disabled.",
+			components: [button],
+		});
+
+		/*
 		try {
 			// Add timeout to database operation
 			const dbPromise = db.get(user.id);
@@ -145,6 +168,7 @@ const createCommand: MiniInteractionCommand = {
 				content: errorMessage,
 			});
 		}
+		*/
 	},
 };
 
