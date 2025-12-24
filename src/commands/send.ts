@@ -1,9 +1,12 @@
 import {
 	CommandBuilder,
 	CommandContext,
+	ContainerBuilder,
 	IntegrationType,
 	InteractionReplyFlags,
 	MiniPermFlags,
+	SectionBuilder,
+	TextDisplayBuilder,
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
@@ -78,7 +81,22 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				// Send message to the ticket thread
+				// Send message to the ticket thread with container
+				const userAvatar = user.avatar
+					? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+					: `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
+
+				const container = new ContainerBuilder()
+					.addComponent(
+						new SectionBuilder()
+							.addComponent(
+								new TextDisplayBuilder().setContent(
+									`**${user.username}:** ${content}\n\n-# Use </send:1453302198086664248> command in DMs to reply`,
+								),
+							),
+					)
+					.setAccentColor(0x3498db);
+
 				const response = await fetch(
 					`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
 					{
@@ -88,13 +106,16 @@ const sendCommand: MiniInteractionCommand = {
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({
-							content: `**${user.username}:** ${content}`,
+							components: [container.toJSON()],
+							flags: ["IsComponentsV2"],
 						}),
 					},
 				);
 
 				if (!response.ok) {
-					throw new Error(`Failed to send message: ${response.status}`);
+					throw new Error(
+						`Failed to send message: ${response.status}`,
+					);
 				}
 
 				return interaction.reply({

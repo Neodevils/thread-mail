@@ -30,9 +30,6 @@ const closeCommand: MiniInteractionCommand = {
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}
 
-		// Check if user has ManageThreads permission
-		const member = interaction.member;
-
 		// Check if we're in a thread
 		if (!channel || channel.type !== 12 || !channel.name) {
 			// GuildPrivateThread

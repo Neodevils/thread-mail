@@ -10,6 +10,10 @@ import {
 	type MiniComponentMessageActionRow,
 	type CommandInteraction,
 	type MiniInteractionCommand,
+	InteractionReplyFlags,
+	ContainerBuilder,
+	SectionBuilder,
+	TextDisplayBuilder,
 } from "@minesa-org/mini-interaction";
 import { db } from "../utils/database.ts";
 import { fetchDiscord } from "../utils/discord.ts";
@@ -36,7 +40,25 @@ const createCommand: MiniInteractionCommand = {
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}
 
-		const userData = await db.get(user.id);
+		const safeUser = user!; // We know user exists after the check
+
+		// Check if user already has an active ticket
+		const userData = await db.get(safeUser.id);
+		if (userData && userData.activeTicketId) {
+			const existingTicket = await db.get(`ticket:${userData.activeTicketId}`);
+			if (existingTicket && existingTicket.status === "open") {
+				return interaction.reply({
+					content: "❌ You already have an open ticket. Use `/send` command in DMs to communicate with staff.",
+					flags: [InteractionReplyFlags.Ephemeral],
+				});
+			}
+		}
+
+		// Reply with container mentioning @here
+		// Container for initial message - but we can't use it with select menu
+		// So we'll just use content
+
+		// Now check OAuth and show select menu
 		if (!userData || !userData.accessToken) {
 			const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
 				process.env.DISCORD_APPLICATION_ID
@@ -53,7 +75,7 @@ const createCommand: MiniInteractionCommand = {
 				)
 				.toJSON();
 
-			return interaction.reply({
+			return interaction.editReply({
 				content:
 					"⚠️ You need to authorize the app first to see your mutual servers.",
 				components: [button],
@@ -61,8 +83,65 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		try {
+			// Parallel API calls with short timeout
+			const [userGuilds, botGuilds] = await Promise.all([
+				fetchDiscord(
+					"/users/@me/guilds",
+					(userData as any).accessToken,
+					false,
+					1500,
+				),
+				fetchDiscord(
+					"/users/@me/guilds",
+					process.env.DISCORD_BOT_TOKEN!,
+					true,
+					1500,
+				),
+			]);
+
+			const mutualGuilds = userGuilds.filter((ug: any) =>
+				botGuilds.some((bg: any) => bg.id === ug.id),
+			);
+
+			if (mutualGuilds.length === 0) {
+				return interaction.editReply({
+					content:
+						"❌ No mutual servers found. Make sure the bot is invited to the servers you are in.",
+				});
+			}
+
+			const menu = new ActionRowBuilder<MiniComponentMessageActionRow>()
+				.addComponents(
+					new StringSelectMenuBuilder()
+						.setCustomId("create:select_server")
+						.setPlaceholder("Select a server to create a thread")
+						.addOptions(
+							mutualGuilds
+								.slice(0, 25)
+								.map((guild: any) =>
+									new StringSelectMenuOptionBuilder()
+										.setLabel(guild.name)
+										.setValue(guild.id),
+								),
+						),
+				)
+				.toJSON();
+
+		return interaction.editReply({
+			content: "@here A new ticket request has been made!\n\nSelect a server to create a support ticket.\n\n-# Use </send:1453302198086664248> command in DMs to communicate with staff.",
+			components: [menu],
+		});
+		} catch (error) {
+			console.error("Error in /create command:", error);
+			return interaction.editReply({
+				content:
+					"❌ An error occurred while fetching your servers. Please try again later.",
+			});
+		}
+
+		try {
 			// Fast database check with short timeout
-			const dbPromise = db.get(user.id);
+			const dbPromise = db.get(safeUser.id);
 			const timeoutPromise = new Promise((_, reject) => {
 				setTimeout(() => reject(new Error("Database timeout")), 500);
 			});
@@ -100,7 +179,7 @@ const createCommand: MiniInteractionCommand = {
 			const [userGuilds, botGuilds] = await Promise.all([
 				fetchDiscord(
 					"/users/@me/guilds",
-					userData.accessToken,
+					(userData as any).accessToken,
 					false,
 					1500,
 				),
