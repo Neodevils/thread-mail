@@ -177,7 +177,7 @@ const sendCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								content: `### <:seal:1453385013931278398> Staff\n>>> ${content}`,
+								content: `### <:seal:1453385013931278398> Server Staff\n>>> ${content}`,
 							}),
 						},
 					);
