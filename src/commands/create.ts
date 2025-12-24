@@ -61,16 +61,11 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		try {
-			// Test: Add timeout to see if it's a timing issue
-			await new Promise(resolve => setTimeout(resolve, 2500));
-
-			// Temporarily disable all API calls for testing
-			const userGuilds: any[] = [];
-			const botGuilds: any[] = [];
-
-			const mutualGuilds = userGuilds.filter((ug: any) =>
-				botGuilds.some((bg: any) => bg.id === ug.id),
-			);
+			// Simplified test: Just show menu without any database/API calls
+			const mutualGuilds: any[] = [
+				{ id: "test1", name: "Test Server 1" },
+				{ id: "test2", name: "Test Server 2" }
+			];
 
 			if (mutualGuilds.length === 0) {
 				return interaction.reply({
@@ -85,7 +80,7 @@ const createCommand: MiniInteractionCommand = {
 						.setCustomId("create:select_server")
 						.setPlaceholder("Select a server to create a thread")
 						.addOptions(
-							mutualGuilds
+							...mutualGuilds
 								.slice(0, 25)
 								.map((guild: any) =>
 									new StringSelectMenuOptionBuilder()
