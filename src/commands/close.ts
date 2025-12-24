@@ -135,7 +135,9 @@ const closeCommand: MiniInteractionCommand = {
 			if (ticketData.webhookUrl) {
 				try {
 					const webhookUrl = ticketData.webhookUrl as string;
-					const webhookMatch = webhookUrl.match(/\/webhooks\/(\d+)\/(.+)$/);
+					const webhookMatch = webhookUrl.match(
+						/\/webhooks\/(\d+)\/(.+)$/,
+					);
 					if (webhookMatch) {
 						const webhookId = webhookMatch[1];
 						await fetch(

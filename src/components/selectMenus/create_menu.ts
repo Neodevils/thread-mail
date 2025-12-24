@@ -120,7 +120,9 @@ export const createMenuHandler: MiniInteractionComponent = {
 				if (webhookResponse.ok) {
 					const webhookData = await webhookResponse.json();
 					webhookUrl = `https://discord.com/api/webhooks/${webhookData.id}/${webhookData.token}`;
-					console.log(`[CREATE] Created webhook for thread ${thread.id}`);
+					console.log(
+						`[CREATE] Created webhook for thread ${thread.id}`,
+					);
 				}
 			} catch (webhookError) {
 				console.log("Webhook creation error:", webhookError);

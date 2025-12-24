@@ -80,28 +80,35 @@ const sendCommand: MiniInteractionCommand = {
 
 				// Send message to the ticket thread using webhook for authentic user appearance
 				if (ticketData.webhookUrl) {
-					const webhookResponse = await fetch(ticketData.webhookUrl as string, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
+					const webhookResponse = await fetch(
+						ticketData.webhookUrl as string,
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								content: content,
+								username: user.username,
+								avatar_url: user.avatar
+									? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+									: undefined,
+							}),
 						},
-						body: JSON.stringify({
-							content: content,
-							username: user.username,
-							avatar_url: user.avatar
-								? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-								: undefined,
-						}),
-					});
+					);
 
 					if (!webhookResponse.ok) {
-						throw new Error(`Failed to send webhook message: ${webhookResponse.status}`);
+						throw new Error(
+							`Failed to send webhook message: ${webhookResponse.status}`,
+						);
 					}
 				} else {
 					// Fallback to embed if webhook not available
 					const userAvatar = user.avatar
 						? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-						: `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
+						: `https://cdn.discordapp.com/embed/avatars/${
+								parseInt(user.id) % 5
+						  }.png`;
 
 					const response = await fetch(
 						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
@@ -128,7 +135,9 @@ const sendCommand: MiniInteractionCommand = {
 					);
 
 					if (!response.ok) {
-						throw new Error(`Failed to send message: ${response.status}`);
+						throw new Error(
+							`Failed to send message: ${response.status}`,
+						);
 					}
 				}
 
