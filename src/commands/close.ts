@@ -60,12 +60,11 @@ const closeCommand: MiniInteractionCommand = {
 				});
 			}
 
-			if (!ticketData) {
-				return interaction.reply({
-					content: "❌ Ticket data not found.",
-					flags: [InteractionReplyFlags.Ephemeral],
-				});
-			}
+			// Reply immediately to show command is processing
+			await interaction.reply({
+				content: `🔒 **Closing ticket...**\n\nPlease wait while we process your request.`,
+				flags: [InteractionReplyFlags.Ephemeral],
+			});
 
 			// Clear user's active ticket first
 			await db.update(`user:${ticketData.userId}`, {
@@ -144,9 +143,9 @@ const closeCommand: MiniInteractionCommand = {
 				// Don't fail the command if cleanup fails
 			}
 
-			return interaction.reply({
-				content: `🔒 **Ticket Closed**\n\nThread has been archived and locked by ${user.username}.\nUser has been notified via DM.\nTicket data has been cleaned up.`,
-				flags: [InteractionReplyFlags.Ephemeral],
+			// Edit the reply to show completion
+			return await interaction.editReply({
+				content: `✅ **Ticket Successfully Closed!**\n\n🔒 Thread has been archived and locked by ${user.username}.\n📧 User has been notified via DM.\n🗑️ Ticket data has been cleaned up.`,
 			});
 		} catch (error) {
 			console.error("Error closing ticket:", error);
