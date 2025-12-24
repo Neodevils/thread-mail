@@ -117,13 +117,14 @@ const sendCommand: MiniInteractionCommand = {
 				const threadData = await db.get(`thread:${channel.id}`);
 				if (!threadData || !threadData.ticketId) {
 					return interaction.reply({
-						content:
-							"❌ This is not a valid ticket thread.",
+						content: "❌ This is not a valid ticket thread.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
 
-				const ticketData = await db.get(`ticket:${threadData.ticketId}`);
+				const ticketData = await db.get(
+					`ticket:${threadData.ticketId}`,
+				);
 				if (!ticketData || ticketData.status !== "open") {
 					return interaction.reply({
 						content:

@@ -63,10 +63,7 @@ const closeCommand: MiniInteractionCommand = {
 				});
 			}
 
-			// Update ticket status to closed
-			await db.update(`ticket:${threadData.ticketId}`, { status: "closed" });
-
-			// Clear user's active ticket
+			// Clear user's active ticket first
 			await db.update(`user:${ticketData.userId}`, {
 				activeTicketId: null,
 			});
@@ -131,8 +128,18 @@ const closeCommand: MiniInteractionCommand = {
 				);
 			}
 
+			// Delete ticket data from database after successful closure
+			try {
+				await db.delete(`ticket:${threadData.ticketId}`);
+				await db.delete(`thread:${channel.id}`);
+				console.log(`[CLOSE TICKET] Deleted ticket data for: ${threadData.ticketId}`);
+			} catch (deleteError) {
+				console.error("Error deleting ticket data:", deleteError);
+				// Don't fail the command if cleanup fails
+			}
+
 			return interaction.reply({
-				content: `🔒 **Ticket Closed**\n\nThread has been archived and locked by ${user.username}.\nUser has been notified via DM.`,
+				content: `🔒 **Ticket Closed**\n\nThread has been archived and locked by ${user.username}.\nUser has been notified via DM.\nTicket data has been cleaned up.`,
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		} catch (error) {
