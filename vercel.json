@@ -8,16 +8,21 @@
 	"functions": {
 		"api/index.ts": {
 			"maxDuration": 10,
-			"includeFiles": "index.html"
+			"includeFiles": "index.html",
+			"runtime": "nodejs18.x"
 		},
 		"api/interactions.ts": {
 			"maxDuration": 10,
-			"includeFiles": "{src/commands/**,src/components/**,src/utils/**}"
+			"includeFiles": "{src/commands/**,src/components/**,src/utils/**}",
+			"runtime": "nodejs18.x"
 		},
 		"api/discord-oauth-callback.ts": {
 			"maxDuration": 10,
-			"includeFiles": "{dist/**,public/pages/**}"
+			"includeFiles": "{dist/**,public/pages/**}",
+			"runtime": "nodejs18.x"
 		}
 	},
-	"buildCommand": "npm run build"
+	"buildCommand": "npm run build",
+	"outputDirectory": ".",
+	"installCommand": "npm install"
 }
