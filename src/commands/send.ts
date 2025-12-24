@@ -110,7 +110,7 @@ const sendCommand: MiniInteractionCommand = {
 				}
 
 				return interaction.reply({
-					content: `# <:thread:1453370245212536832> Message sent to ticket.\n>>> ${content}`,
+					content: `### <:thread:1453370245212536832> Message sent to ticket.\n>>> ${content}`,
 				});
 			} else {
 				if (!channel || channel.type !== 12 || !channel.name) {
@@ -177,7 +177,7 @@ const sendCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								content: `## **Verified Staff <:seal:1453385013931278398> Response:** \n>>> ${content}`,
+								content: `### <:seal:1453385013931278398> Staff\n>>> ${content}`,
 							}),
 						},
 					);
