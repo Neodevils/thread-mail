@@ -65,9 +65,6 @@ const closeCommand: MiniInteractionCommand = {
 				content: `<:thread_archive_server:1453370235536281713> **Archived the ticket.**`,
 			});
 
-			// Wait 3 seconds to ensure the interaction reply is processed before archiving
-			await new Promise((resolve) => setTimeout(resolve, 3000));
-
 			const userData = await db.get(`user:${ticketData.userId}`);
 			if (userData) {
 				await db.set(`user:${ticketData.userId}`, {
