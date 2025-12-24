@@ -1,10 +1,8 @@
 import {
 	CommandBuilder,
 	CommandContext,
-	ContainerBuilder,
 	IntegrationType,
 	InteractionReplyFlags,
-	TextDisplayBuilder,
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
@@ -59,7 +57,12 @@ const sendCommand: MiniInteractionCommand = {
 				console.log("Getting user data for:", `user:${user.id}`);
 				const startTime = Date.now();
 				const userData = await db.get(`user:${user.id}`);
-				console.log("User data retrieved in", Date.now() - startTime, "ms:", userData);
+				console.log(
+					"User data retrieved in",
+					Date.now() - startTime,
+					"ms:",
+					userData,
+				);
 
 				if (!userData || !userData.activeTicketId) {
 					return interaction.reply({
@@ -72,7 +75,11 @@ const sendCommand: MiniInteractionCommand = {
 				const ticketData = await db.get(
 					`ticket:${userData.activeTicketId}`,
 				);
-				console.log("Ticket data retrieved in", Date.now() - ticketStartTime, "ms");
+				console.log(
+					"Ticket data retrieved in",
+					Date.now() - ticketStartTime,
+					"ms",
+				);
 
 				if (!ticketData || ticketData.status !== "open") {
 					return interaction.reply({
@@ -83,7 +90,11 @@ const sendCommand: MiniInteractionCommand = {
 
 				const guildStartTime = Date.now();
 				const guildData = await db.get(`guild:${ticketData.guildId}`);
-				console.log("Guild data retrieved in", Date.now() - guildStartTime, "ms");
+				console.log(
+					"Guild data retrieved in",
+					Date.now() - guildStartTime,
+					"ms",
+				);
 				const webhookUrl = guildData?.webhookUrl;
 
 				if (webhookUrl) {
@@ -111,7 +122,11 @@ const sendCommand: MiniInteractionCommand = {
 							`Failed to send webhook message: ${webhookResponse.status}`,
 						);
 					}
-					console.log("Webhook sent in", Date.now() - webhookStartTime, "ms");
+					console.log(
+						"Webhook sent in",
+						Date.now() - webhookStartTime,
+						"ms",
+					);
 				} else {
 					console.log("Sending direct API message...");
 					const apiStartTime = Date.now();
@@ -134,26 +149,15 @@ const sendCommand: MiniInteractionCommand = {
 							`Failed to send message: ${response.status}`,
 						);
 					}
-					console.log("Direct API message sent in", Date.now() - apiStartTime, "ms");
+					console.log(
+						"Direct API message sent in",
+						Date.now() - apiStartTime,
+						"ms",
+					);
 				}
 
 				return interaction.reply({
-					content: "# <:thread:1453370245212536832> Message sent",
-					components: [
-						new ContainerBuilder()
-							.addComponent(
-								new TextDisplayBuilder().setContent(
-									"# <:thread:1453370245212536832> Message sent to ticket.",
-								),
-							)
-							.addComponent(
-								new TextDisplayBuilder().setContent(
-									`>>> ${content}`,
-								),
-							)
-							.toJSON(),
-					],
-					flags: [InteractionReplyFlags.IsComponentsV2],
+					content: `# <:thread:1453370245212536832> Message sent to ticket.\n>>> ${content}`,
 				});
 			} else {
 				console.log("In guild, checking channel...");
