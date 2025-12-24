@@ -79,10 +79,14 @@ const sendCommand: MiniInteractionCommand = {
 				}
 
 				// Send message to the ticket thread using webhook for authentic user appearance
-				console.log(`[SEND DM] Using webhook: ${!!ticketData.webhookUrl}`);
+				console.log(
+					`[SEND DM] Using webhook: ${!!ticketData.webhookUrl}`,
+				);
 
 				if (ticketData.webhookUrl) {
-					console.log(`[SEND DM] Webhook URL: ${ticketData.webhookUrl}`);
+					console.log(
+						`[SEND DM] Webhook URL: ${ticketData.webhookUrl}`,
+					);
 					const webhookResponse = await fetch(
 						ticketData.webhookUrl as string,
 						{
@@ -100,10 +104,14 @@ const sendCommand: MiniInteractionCommand = {
 						},
 					);
 
-					console.log(`[SEND DM] Webhook response status: ${webhookResponse.status}`);
+					console.log(
+						`[SEND DM] Webhook response status: ${webhookResponse.status}`,
+					);
 
 					if (!webhookResponse.ok) {
-						console.log(`[SEND DM] Webhook failed, falling back to embed`);
+						console.log(
+							`[SEND DM] Webhook failed, falling back to embed`,
+						);
 						throw new Error(
 							`Failed to send webhook message: ${webhookResponse.status}`,
 						);
@@ -111,14 +119,10 @@ const sendCommand: MiniInteractionCommand = {
 
 					console.log(`[SEND DM] Message sent via webhook`);
 				} else {
-					console.log(`[SEND DM] No webhook available, using embed fallback`);
-					// Fallback to embed if webhook not available
-					const userAvatar = user.avatar
-						? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-						: `https://cdn.discordapp.com/embed/avatars/${
-								parseInt(user.id) % 5
-						  }.png`;
-
+					console.log(
+						`[SEND DM] No webhook available, using regular message`,
+					);
+					// Fallback to regular message if webhook not available
 					const response = await fetch(
 						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
 						{
@@ -128,17 +132,7 @@ const sendCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								embeds: [
-									{
-										description: content,
-										author: {
-											name: user.username,
-											icon_url: userAvatar,
-										},
-										timestamp: new Date().toISOString(),
-										color: 0x3498db, // Blue color for user messages
-									},
-								],
+								content: `**${user.username}:** ${content}`,
 							}),
 						},
 					);
