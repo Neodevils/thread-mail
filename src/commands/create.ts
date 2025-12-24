@@ -243,26 +243,25 @@ const createCommand: MiniInteractionCommand = {
 			let errorMessage =
 				"❌ An error occurred while fetching your servers. Please try again later.";
 
-			if (error instanceof Error) {
-				if (
-					error.message.includes("timed out") ||
-					error.message.includes("timeout")
-				) {
-					errorMessage =
-						"❌ Server list is taking too long to load. This might be due to API rate limits or network issues. Please try again in a moment.";
-				} else if (error.message.includes("Database timeout")) {
-					errorMessage =
-						"❌ Database is responding slowly. Please try again.";
-				} else if (
-					error.message.includes("401") ||
-					error.message.includes("403")
-				) {
-					errorMessage =
-						"❌ Your Discord authorization has expired. Please re-authorize the app.";
-				} else if (error.message.includes("429")) {
-					errorMessage =
-						"❌ Too many requests. Please wait a moment and try again.";
-				}
+			const errorObj = error as Error;
+			if (
+				errorObj.message.includes("timed out") ||
+				errorObj.message.includes("timeout")
+			) {
+				errorMessage =
+					"❌ Server list is taking too long to load. This might be due to API rate limits or network issues. Please try again in a moment.";
+			} else if (errorObj.message.includes("Database timeout")) {
+				errorMessage =
+					"❌ Database is responding slowly. Please try again.";
+			} else if (
+				errorObj.message.includes("401") ||
+				errorObj.message.includes("403")
+			) {
+				errorMessage =
+					"❌ Your Discord authorization has expired. Please re-authorize the app.";
+			} else if (errorObj.message.includes("429")) {
+				errorMessage =
+					"❌ Too many requests. Please wait a moment and try again.";
 			}
 
 			return interaction.editReply({
