@@ -66,7 +66,7 @@ const closeCommand: MiniInteractionCommand = {
 			});
 
 			// Wait 3 seconds to ensure the interaction reply is processed before archiving
-			await new Promise(resolve => setTimeout(resolve, 3000));
+			await new Promise((resolve) => setTimeout(resolve, 3000));
 
 			const userData = await db.get(`user:${ticketData.userId}`);
 			if (userData) {
