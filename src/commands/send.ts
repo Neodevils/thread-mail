@@ -4,27 +4,17 @@ import {
 	ContainerBuilder,
 	IntegrationType,
 	InteractionReplyFlags,
-	MiniPermFlags,
-	SectionBuilder,
 	TextDisplayBuilder,
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
 import { db } from "../utils/database.ts";
-import { fetchDiscord } from "../utils/discord.ts";
 
-/**
- * /send command - Posts the canonical render of a ticket inside a thread.
- */
 const sendCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
 		.setName("send")
 		.setDescription("Send a message to the ticket system")
-		.setContexts([
-			CommandContext.Guild,
-			CommandContext.Bot,
-			CommandContext.DM,
-		])
+		.setContexts([CommandContext.Guild, CommandContext.Bot])
 		.setIntegrationTypes([
 			IntegrationType.GuildInstall,
 			IntegrationType.UserInstall,
@@ -38,106 +28,126 @@ const sendCommand: MiniInteractionCommand = {
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
+		console.log("Send command called");
 		const { options, guild, channel } = interaction;
 		const user = interaction.user ?? interaction.member?.user;
 
+		console.log("User:", user?.id, "Guild:", guild?.id, "Channel:", channel?.id);
+
 		if (!user) {
-			return interaction.reply({ content: "❌ Could not resolve user." });
+			console.log("No user found");
+			return interaction.reply({
+				content: "<:Oops:1453370232277307474> Could not resolve user.",
+			});
 		}
 
 		const content = options.getString("content")!;
+		console.log("Content:", content);
+
+		// Defer reply to acknowledge interaction within 3 seconds
+		console.log("Deferring reply...");
+		await interaction.deferReply();
+		console.log("Reply deferred");
 
 		try {
 			const isDM = !guild;
+			console.log("Is DM:", isDM);
 
 			if (isDM) {
-				// DM Usage: User sending message to their ticket
-				console.log(`[SEND DM] User: ${user.id} (${user.username})`);
-
+				console.log("Getting user data for:", `user:${user.id}`);
 				const userData = await db.get(`user:${user.id}`);
-				console.log(`[SEND DM] User data:`, userData);
+				console.log("User data:", userData);
 
 				if (!userData || !userData.activeTicketId) {
-					console.log(`[SEND DM] No active ticket found for user`);
-					return interaction.reply({
+					return interaction.editReply({
 						content:
-							"❌ You don't have an active ticket. Use `/create` command in a server first.",
+							"<:Oops:1453370232277307474> You don't have an active ticket. Use </create:1453302198086664249> command in a server first.",
 					});
 				}
 
 				const ticketData = await db.get(
 					`ticket:${userData.activeTicketId}`,
 				);
-				console.log(`[SEND DM] Ticket data:`, ticketData);
 
 				if (!ticketData || ticketData.status !== "open") {
-					console.log(
-						`[SEND DM] Ticket not active:`,
-						ticketData?.status,
-					);
-					return interaction.reply({
+					return interaction.editReply({
 						content:
-							"❌ Your ticket is not active or doesn't exist.",
+							"<:Oops:1453370232277307474> Your ticket is not active or doesn't exist.",
 					});
 				}
 
-				// Send message to the ticket thread with container
-				const userAvatar = user.avatar
-					? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-					: `https://cdn.discordapp.com/embed/avatars/${
-							parseInt(user.id) % 5
-					  }.png`;
+				const guildData = await db.get(`guild:${ticketData.guildId}`);
+				const webhookUrl = guildData?.webhookUrl;
 
-				const container = new ContainerBuilder()
-					.addComponent(
-						new SectionBuilder().addComponent(
-							new TextDisplayBuilder().setContent(
-								`**${user.username}:** ${content}\n\n-# Use </send:1453302198086664248> command in DMs to reply`,
-							),
-						),
-					)
-					.setAccentColor(0x3498db);
-
-				const response = await fetch(
-					`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
-					{
+				if (webhookUrl) {
+					const webhookUrlWithThread = `${
+						webhookUrl as string
+					}?thread_id=${ticketData.threadId}`;
+					const webhookResponse = await fetch(webhookUrlWithThread, {
 						method: "POST",
 						headers: {
-							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({
-							components: [container.toJSON()],
-							flags: ["IsComponentsV2"],
+							content: content,
+							username: user.username,
+							avatar_url: user.avatar
+								? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+								: undefined,
 						}),
-					},
-				);
+					});
 
-				if (!response.ok) {
-					throw new Error(
-						`Failed to send message: ${response.status}`,
+					if (!webhookResponse.ok) {
+						throw new Error(
+							`Failed to send webhook message: ${webhookResponse.status}`,
+						);
+					}
+				} else {
+					const response = await fetch(
+						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								content: `**From ${user.username}:** ${content}`,
+							}),
+						},
 					);
+
+					if (!response.ok) {
+						throw new Error(
+							`Failed to send message: ${response.status}`,
+						);
+					}
 				}
 
-				return interaction.reply({
-					content: "✅ Message sent to your ticket!",
+				return interaction.editReply({
+					content: "# <:thread:1453370245212536832> Message sent",
+					components: [
+						new ContainerBuilder()
+							.addComponent(
+								new TextDisplayBuilder().setContent(
+									"# <:thread:1453370245212536832> Message sent to ticket.",
+								),
+							)
+							.addComponent(
+								new TextDisplayBuilder().setContent(
+									`>>> ${content}`,
+								),
+							)
+							.toJSON(),
+					],
+					flags: [InteractionReplyFlags.IsComponentsV2],
 				});
 			} else {
-				// Guild Usage: Staff responding to ticket
-				console.log(
-					`[SEND GUILD] Channel type: ${channel?.type}, name: ${channel?.name}`,
-				);
-
-				// Check if we're in a ticket thread
+				console.log("In guild, checking channel...");
 				if (!channel || channel.type !== 12 || !channel.name) {
-					console.log(
-						`[SEND GUILD] Validation failed - channel: ${!!channel}, type: ${
-							channel?.type
-						}, name: ${!!channel?.name}`,
-					);
-					return interaction.reply({
+					return interaction.editReply({
 						content:
-							"❌ This command can only be used in ticket threads.",
+							"<:Oops:1453370232277307474> This command can only be used in ticket threads.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
@@ -145,8 +155,9 @@ const sendCommand: MiniInteractionCommand = {
 				// Find ticket by thread ID
 				const threadData = await db.get(`thread:${channel.id}`);
 				if (!threadData || !threadData.ticketId) {
-					return interaction.reply({
-						content: "❌ This is not a valid ticket thread.",
+					return interaction.editReply({
+						content:
+							"<:Oops:1453370232277307474> This is not a valid ticket thread.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
@@ -155,9 +166,9 @@ const sendCommand: MiniInteractionCommand = {
 					`ticket:${threadData.ticketId}`,
 				);
 				if (!ticketData || ticketData.status !== "open") {
-					return interaction.reply({
+					return interaction.editReply({
 						content:
-							"❌ This ticket is not active or doesn't exist.",
+							"<:Oops:1453370232277307474> This ticket is not active or doesn't exist.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
@@ -187,18 +198,7 @@ const sendCommand: MiniInteractionCommand = {
 
 					const dmChannel = await dmResponse.json();
 
-					// Send message to DM with staff appearance
-					const botUser = await fetchDiscord(
-						`/users/@me`,
-						process.env.DISCORD_BOT_TOKEN!,
-						true,
-					);
-					const botAvatar = botUser.avatar
-						? `https://cdn.discordapp.com/avatars/${botUser.id}/${botUser.avatar}.png`
-						: `https://cdn.discordapp.com/embed/avatars/${
-								parseInt(botUser.id) % 5
-						  }.png`;
-
+					// Send message to DM
 					const messageResponse = await fetch(
 						`https://discord.com/api/v10/channels/${dmChannel.id}/messages`,
 						{
@@ -208,17 +208,7 @@ const sendCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								embeds: [
-									{
-										description: content,
-										author: {
-											name: "Staff Response",
-											icon_url: botAvatar,
-										},
-										timestamp: new Date().toISOString(),
-										color: 0xe74c3c, // Red color for staff messages
-									},
-								],
+								content: `## **Verified Staff <:seal:1453385013931278398> Response:** \n>>> ${content}`,
 							}),
 						},
 					);
@@ -229,23 +219,23 @@ const sendCommand: MiniInteractionCommand = {
 						);
 					}
 
-					return interaction.reply({
-						content: "✅ Response sent to user via DM!",
-						flags: [InteractionReplyFlags.Ephemeral],
+					return interaction.editReply({
+						content: `## <:thread:1453370245212536832> Response sent to user via DM!\n>>> ${content}`,
 					});
 				} catch (dmError) {
 					console.error("DM Error:", dmError);
-					return interaction.reply({
+					return interaction.editReply({
 						content:
-							"❌ Could not send DM to user. They may have DMs disabled.",
+							"<:Oops:1453370232277307474> Could not send DM to user. They may have DMs disabled.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
 			}
 		} catch (error) {
 			console.error("Error in /send command:", error);
-			return interaction.reply({
-				content: "❌ An error occurred while sending the message.",
+			return interaction.editReply({
+				content:
+					"<:Oops:1453370232277307474> An error occurred while sending the message.",
 			});
 		}
 	},

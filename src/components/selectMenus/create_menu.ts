@@ -2,6 +2,10 @@ import {
 	InteractionReplyFlags,
 	type StringSelectInteraction,
 	type MiniInteractionComponent,
+	TextDisplayBuilder,
+	ContainerBuilder,
+	SectionBuilder,
+	ThumbnailBuilder,
 } from "@minesa-org/mini-interaction";
 import { fetchDiscord } from "../../utils/discord.ts";
 import { db } from "../../utils/database.ts";
@@ -17,30 +21,41 @@ export const createMenuHandler: MiniInteractionComponent = {
 
 		if (!user) {
 			return interaction.reply({
-				content: "❌ Could not resolve user.",
+				content: "<:Oops:1453370232277307474> Could not resolve user.",
+				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		}
 
 		try {
-			// TEMP: Skip duplicate check for testing
-			/*
+			// Check for any existing active ticket (global limit)
 			const userData = await db.get(`user:${user.id}`);
 			if (userData && userData.activeTicketId) {
 				const existingTicket = await db.get(
 					`ticket:${userData.activeTicketId}`,
 				);
-				if (
-					existingTicket &&
-					existingTicket.status === "open" &&
-					existingTicket.guildId === guildId
-				) {
+				if (existingTicket && existingTicket.status === "open") {
 					return interaction.reply({
-						content: `❌ You already have an open ticket in this server! Please use \`/send\` command in DMs to communicate with staff, or wait for your current ticket to be closed.`,
-						flags: [InteractionReplyFlags.Ephemeral],
+						components: [
+							new ContainerBuilder()
+								.addComponent(
+									new TextDisplayBuilder().setContent(
+										"## <:Oops:1453370232277307474> You already have an open ticket!",
+									),
+								)
+								.addComponent(
+									new TextDisplayBuilder().setContent(
+										"Please use </send:1453302198086664248> command in DMs to communicate with staff.",
+									),
+								)
+								.toJSON(),
+						],
+						flags: [
+							InteractionReplyFlags.IsComponentsV2,
+							InteractionReplyFlags.Ephemeral,
+						],
 					});
 				}
 			}
-			*/
 
 			// Generate unique ticket ID (still using timestamp for internal use)
 			const ticketId = Date.now().toString();
@@ -75,7 +90,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 			if (!systemChannelId) {
 				return interaction.reply({
 					content:
-						"❌ This server does not have a system channel configured. Please create a thread manually or configure a system channel.",
+						"<:Oops:1453370232277307474> This server does not have a system channel configured. Please create a thread manually or tell the server owner to configure a system channel.\n\n-# You may want to forward this message to the server owner to configure a system channel.",
 				});
 			}
 
@@ -96,22 +111,52 @@ export const createMenuHandler: MiniInteractionComponent = {
 				},
 			).then((res) => res.json());
 
-			console.log(
-				`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`,
-			);
-
-			// Skip webhook creation for now - use regular messages
+			// Create webhook for the system channel (if not exists)
 			let webhookUrl = null;
+			try {
+				const webhooks = await fetchDiscord(
+					`/channels/${systemChannelId}/webhooks`,
+					process.env.DISCORD_BOT_TOKEN!,
+					true,
+				);
+				let existingWebhook = webhooks.find(
+					(wh: any) => wh.name === "TicketSystem",
+				);
 
-			// 3. Store the thread info and set up initial guild settings
+				if (!existingWebhook) {
+					// Create webhook using direct fetch
+					const webhookResponse = await fetch(
+						`https://discord.com/api/v10/channels/${systemChannelId}/webhooks`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								name: "TicketSystem",
+							}),
+						},
+					);
+
+					if (webhookResponse.ok) {
+						existingWebhook = await webhookResponse.json();
+					}
+				}
+
+				webhookUrl = `https://discord.com/api/webhooks/${existingWebhook.id}/${existingWebhook.token}`;
+			} catch (webhookError) {
+				console.log("Webhook creation error:", webhookError);
+			}
+
 			await db.set(`guild:${guildId}`, {
 				guildId,
 				guildName: guild.name,
 				systemChannelId,
+				webhookUrl,
 				status: "active",
 			});
 
-			// Store ticket information
 			await db.set(`ticket:${ticketId}`, {
 				ticketId,
 				caseNumber,
@@ -119,22 +164,11 @@ export const createMenuHandler: MiniInteractionComponent = {
 				userId: user.id,
 				username: user.username,
 				threadId: thread.id,
-				webhookUrl,
 				status: "open",
 			});
 
-			// Also store by thread ID for quick lookup
 			await db.set(`thread:${thread.id}`, {
 				ticketId,
-			});
-			console.log(`[CREATE TICKET] Saved ticket: ticket:${ticketId}`, {
-				ticketId,
-				caseNumber,
-				guildId,
-				userId: user.id,
-				username: user.username,
-				threadId: thread.id,
-				status: "open",
 			});
 
 			// Store user's active ticket
@@ -142,20 +176,39 @@ export const createMenuHandler: MiniInteractionComponent = {
 				activeTicketId: ticketId,
 				guildId,
 			});
-			console.log(`[CREATE TICKET] Saved user data: user:${user.id}`, {
-				activeTicketId: ticketId,
-				guildId,
-			});
 
 			return interaction.reply({
-				content: `✅ **Ticket #${ticketId}** created in **${guild.name}**!\n\nThread: <#${thread.id}>\n\nYou can now send messages using \`/send\` command in DMs!`,
-				flags: [InteractionReplyFlags.Ephemeral],
+				components: [
+					new ContainerBuilder()
+						.addComponent(
+							new SectionBuilder()
+								.addComponent(
+									new TextDisplayBuilder().setContent(
+										[
+											`## <:thread:1453370245212536832> Ticket created in ${guild.name}!`,
+											"You can now send messages using </send:1453302198086664248> command in our DMs!",
+										].join("\n"),
+									),
+								)
+								.setAccessory(
+									new ThumbnailBuilder().setMedia(
+										guild.icon
+											? {
+													url: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`,
+											  }
+											: null,
+									),
+								),
+						)
+						.toJSON(),
+				],
+				flags: [InteractionReplyFlags.IsComponentsV2],
 			});
 		} catch (error) {
 			console.error("Error in create menu handler:", error);
 			return interaction.reply({
 				content:
-					"❌ Failed to create thread. Check bot permissions in the selected server.",
+					"<:Oops:1453370232277307474> Failed to create thread. Check bot permissions in the selected server.",
 			});
 		}
 	},

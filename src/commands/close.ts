@@ -4,6 +4,9 @@ import {
 	IntegrationType,
 	InteractionReplyFlags,
 	MiniPermFlags,
+	ContainerBuilder,
+	TextDisplayBuilder,
+	SectionBuilder,
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
@@ -27,14 +30,16 @@ const closeCommand: MiniInteractionCommand = {
 		);
 
 		if (!user) {
-			return interaction.reply({ content: "❌ Could not resolve user." });
+			return interaction.reply({
+				content: "<:Oops:1453370232277307474> Could not resolve user.",
+				flags: [InteractionReplyFlags.Ephemeral],
+			});
 		}
 
-		// Check if we're in a thread
 		if (!channel || channel.type !== 12 || !channel.name) {
-			// GuildPrivateThread
 			return interaction.reply({
-				content: "❌ This command can only be used in ticket threads.",
+				content:
+					"<:Oops:1453370232277307474> This command can only be used in ticket threads.",
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		}
@@ -44,7 +49,8 @@ const closeCommand: MiniInteractionCommand = {
 			const threadData = await db.get(`thread:${channel.id}`);
 			if (!threadData || !threadData.ticketId) {
 				return interaction.reply({
-					content: "❌ This is not a valid ticket thread.",
+					content:
+						"<:Oops:1453370232277307474> This is not a valid ticket thread.",
 					flags: [InteractionReplyFlags.Ephemeral],
 				});
 			}
@@ -52,24 +58,20 @@ const closeCommand: MiniInteractionCommand = {
 			const ticketData = await db.get(`ticket:${threadData.ticketId}`);
 			if (!ticketData) {
 				return interaction.reply({
-					content: "❌ Ticket data not found.",
+					content:
+						"<:Oops:1453370232277307474> Ticket data not found.",
 					flags: [InteractionReplyFlags.Ephemeral],
 				});
 			}
 
-			// Reply immediately to show command is processing
-			interaction.reply({
-				content: `🔒 **Closing ticket...**\n\nPlease wait while we process your request.`,
-				flags: [InteractionReplyFlags.Ephemeral],
+			await interaction.reply({
+				content: `<:thread_archive_server:1453370235536281713> **Archived the ticket.**`,
 			});
 
-			// Clear user's active ticket first
 			await db.update(`user:${ticketData.userId}`, {
 				activeTicketId: null,
 			});
-			await new Promise((resolve) => setTimeout(resolve, 1000));
 
-			// Archive and lock the thread
 			const response = await fetch(
 				`https://discord.com/api/v10/channels/${channel.id}`,
 				{
@@ -89,7 +91,6 @@ const closeCommand: MiniInteractionCommand = {
 				throw new Error(`Failed to close thread: ${response.status}`);
 			}
 
-			// Send DM to user about ticket closure
 			try {
 				const dmResponse = await fetch(
 					`https://discord.com/api/v10/users/@me/channels`,
@@ -117,7 +118,20 @@ const closeCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								content: `🔒 **Your ticket has been closed!**\n\nStaff have resolved your issue. If you need further assistance, you can create a new ticket anytime using \`/create\` command in the server.`,
+								components: [
+									new ContainerBuilder()
+										.addComponent(
+											new TextDisplayBuilder().setContent(
+												[
+													`## <:thread_archive_user:1453370242381254687> Your ticket has been closed!`,
+													"",
+													"Staff have resolved your issue. If you need further assistance, you can create a new ticket anytime using </create:1453302198086664249> command in the server.",
+												].join("\n"),
+											),
+										)
+										.toJSON(),
+								],
+								flags: [InteractionReplyFlags.IsComponentsV2],
 							}),
 						},
 					);
@@ -129,28 +143,17 @@ const closeCommand: MiniInteractionCommand = {
 				);
 			}
 
-			// No webhook to delete (using regular messages)
-
-			// Delete ticket data from database after successful closure
 			try {
 				await db.delete(`ticket:${threadData.ticketId}`);
 				await db.delete(`thread:${channel.id}`);
-				console.log(
-					`[CLOSE TICKET] Deleted ticket data for: ${threadData.ticketId}`,
-				);
 			} catch (deleteError) {
 				console.error("Error deleting ticket data:", deleteError);
-				// Don't fail the command if cleanup fails
 			}
-
-			// Edit the reply to show completion
-			return await interaction.editReply({
-				content: `✅ **Ticket Successfully Closed!**\n\n🔒 Thread has been archived and locked by ${user.username}.\n📧 User has been notified via DM.\n🗑️ Ticket data has been cleaned up.`,
-			});
 		} catch (error) {
 			console.error("Error closing ticket:", error);
 			return interaction.reply({
-				content: "❌ Failed to close the ticket. Please try again.",
+				content:
+					"<:Oops:1453370232277307474> Failed to close the ticket. Please try again.",
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		}
