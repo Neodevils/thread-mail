@@ -74,7 +74,6 @@ export const createMenuHandler: MiniInteractionComponent = {
 				username: user.username,
 				threadId: thread.id,
 				status: "open",
-				createdAt: Date.now(),
 			});
 			console.log(`[CREATE TICKET] Saved ticket: ticket:${ticketId}`, {
 				ticketId,
@@ -82,6 +81,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 				userId: user.id,
 				username: user.username,
 				threadId: thread.id,
+				status: "open",
 			});
 
 			// Store user's active ticket

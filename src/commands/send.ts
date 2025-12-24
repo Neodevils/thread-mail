@@ -68,7 +68,10 @@ const sendCommand: MiniInteractionCommand = {
 				console.log(`[SEND DM] Ticket data:`, ticketData);
 
 				if (!ticketData || ticketData.status !== "open") {
-					console.log(`[SEND DM] Ticket not active:`, ticketData?.status);
+					console.log(
+						`[SEND DM] Ticket not active:`,
+						ticketData?.status,
+					);
 					return interaction.reply({
 						content:
 							"❌ Your ticket is not active or doesn't exist.",
