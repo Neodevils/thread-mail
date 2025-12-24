@@ -105,7 +105,7 @@ const sendCommand: MiniInteractionCommand = {
 			} else {
 				// Guild Usage: Staff responding to ticket
 				// Check if we're in a ticket thread
-				if (!channel || !channel.name) {
+				if (!channel || channel.type !== 12 || !channel.name) {
 					return interaction.reply({
 						content:
 							"❌ This command can only be used in ticket threads.",

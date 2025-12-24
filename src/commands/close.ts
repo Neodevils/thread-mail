@@ -30,8 +30,8 @@ const closeCommand: MiniInteractionCommand = {
 		const member = interaction.member;
 
 		// Check if we're in a thread
-		if (!channel || channel.type !== 11 || !channel.name) {
-			// GuildPublicThread
+		if (!channel || channel.type !== 12 || !channel.name) {
+			// GuildPrivateThread
 			return interaction.reply({
 				content: "❌ This command can only be used in ticket threads.",
 				flags: [InteractionReplyFlags.Ephemeral],
@@ -132,7 +132,9 @@ const closeCommand: MiniInteractionCommand = {
 			try {
 				await db.delete(`ticket:${threadData.ticketId}`);
 				await db.delete(`thread:${channel.id}`);
-				console.log(`[CLOSE TICKET] Deleted ticket data for: ${threadData.ticketId}`);
+				console.log(
+					`[CLOSE TICKET] Deleted ticket data for: ${threadData.ticketId}`,
+				);
 			} catch (deleteError) {
 				console.error("Error deleting ticket data:", deleteError);
 				// Don't fail the command if cleanup fails

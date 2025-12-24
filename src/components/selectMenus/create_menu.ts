@@ -73,7 +73,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 					body: JSON.stringify({
 						name: `#${caseNumber} - ${user.username}`,
 						auto_archive_duration: 10080, // 1 week
-						type: 11, // Guild Public Thread
+						type: 12, // Guild Private Thread
 					}),
 				},
 			).then((res) => res.json());
