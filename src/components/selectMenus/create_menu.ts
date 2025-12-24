@@ -4,8 +4,8 @@ import {
 	type MiniComponentMessageActionRow,
 	type MiniInteractionComponent,
 } from "@minesa-org/mini-interaction";
-import { fetchDiscord } from "../utils/discord.js";
-import { db } from "../utils/database.js";
+import { fetchDiscord } from "../../utils/discord.ts";
+import { db } from "../../utils/database.ts";
 
 /**
  * Handler for the server selection menu in the /create command.
