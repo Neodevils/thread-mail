@@ -1,20 +1,17 @@
-import {
-	MiniInteraction,
-	RoleConnectionMetadataTypes,
-} from "@minesa-org/mini-interaction";
+import "dotenv/config";
+import { MiniInteraction } from "@minesa-org/mini-interaction";
+import sendCommand from "../src/commands/send.js";
+import createCommand from "../src/commands/create.js";
+import { createMenuHandler } from "../src/components/create_menu.js";
+import { staffRoleMenuHandler } from "../src/components/staff_role_menu.js";
 
 export const mini = new MiniInteraction({
 	applicationId: process.env.DISCORD_APPLICATION_ID!,
 	publicKey: process.env.DISCORD_APP_PUBLIC_KEY!,
 });
 
-await mini.registerMetadata(process.env.DISCORD_BOT_TOKEN!, [
-	{
-		key: "is_assistant",
-		name: "Is Assistant?",
-		description: "Is the user an assistant?",
-		type: RoleConnectionMetadataTypes.BooleanEqual,
-	},
-]);
+mini.useCommand(sendCommand);
+mini.useCommand(createCommand);
+mini.useComponents([createMenuHandler, staffRoleMenuHandler]);
 
 export default mini.createNodeHandler();
