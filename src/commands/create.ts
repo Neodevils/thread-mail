@@ -61,11 +61,46 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		try {
-			// Simplified test: Just show menu without any database/API calls
-			const mutualGuilds: any[] = [
-				{ id: "test1", name: "Test Server 1" },
-				{ id: "test2", name: "Test Server 2" }
-			];
+			// Fast database check with short timeout
+			const dbPromise = db.get(user.id);
+			const timeoutPromise = new Promise((_, reject) => {
+				setTimeout(() => reject(new Error("Database timeout")), 500);
+			});
+
+			const userData = (await Promise.race([dbPromise, timeoutPromise])) as any;
+
+			if (!userData || !userData.accessToken) {
+				const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
+					process.env.DISCORD_APPLICATION_ID
+				}&response_type=code&redirect_uri=${encodeURIComponent(
+					process.env.DISCORD_REDIRECT_URI!,
+				)}&scope=identify+guilds+role_connections.write`;
+
+				const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
+					.addComponents(
+						new ButtonBuilder()
+							.setLabel("Authorize App")
+							.setStyle(ButtonStyle.Link)
+							.setURL(oauthUrl),
+					)
+					.toJSON();
+
+				return interaction.reply({
+					content:
+						"⚠️ You need to authorize the app first to see your mutual servers.",
+					components: [button],
+				});
+			}
+
+			// Parallel API calls with short timeout
+			const [userGuilds, botGuilds] = await Promise.all([
+				fetchDiscord("/users/@me/guilds", userData.accessToken, false, 1500),
+				fetchDiscord("/users/@me/guilds", process.env.DISCORD_BOT_TOKEN!, true, 1500),
+			]);
+
+			const mutualGuilds = userGuilds.filter((ug: any) =>
+				botGuilds.some((bg: any) => bg.id === ug.id),
+			);
 
 			if (mutualGuilds.length === 0) {
 				return interaction.reply({
