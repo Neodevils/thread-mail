@@ -61,28 +61,12 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		try {
-			const userGuilds = await fetchDiscord(
-				"/users/@me/guilds",
-				userData.accessToken as string,
-			);
+			// Test: Add timeout to see if it's a timing issue
+			await new Promise(resolve => setTimeout(resolve, 2500));
 
-			const botGuildsData: any = await db.get("cache:bot_guilds");
-			let botGuilds: any[] = botGuildsData?.guilds || [];
-
-			if (
-				!botGuilds.length ||
-				(botGuildsData?.cachedAt || 0) < Date.now() - 300000
-			) {
-				botGuilds = await fetchDiscord(
-					"/users/@me/guilds",
-					process.env.DISCORD_BOT_TOKEN!,
-					true,
-				);
-				await db.set("cache:bot_guilds", {
-					guilds: botGuilds,
-					cachedAt: Date.now(),
-				});
-			}
+			// Temporarily disable all API calls for testing
+			const userGuilds: any[] = [];
+			const botGuilds: any[] = [];
 
 			const mutualGuilds = userGuilds.filter((ug: any) =>
 				botGuilds.some((bg: any) => bg.id === ug.id),
