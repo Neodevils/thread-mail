@@ -34,13 +34,18 @@ const createCommand: MiniInteractionCommand = {
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
-		console.log(`[CREATE] Command triggered by user: ${interaction.user?.id}`);
+		// Defer immediately to avoid timeout
+		await interaction.deferReply();
+
+		console.log(
+			`[CREATE] Command triggered by user: ${interaction.user?.id}`,
+		);
 
 		const user = interaction.user ?? interaction.member?.user;
 
 		if (!user) {
 			console.log(`[CREATE] User not found`);
-			return interaction.reply({ content: "❌ Could not resolve user." });
+			return interaction.editReply({ content: "❌ Could not resolve user." });
 		}
 
 		console.log(`[CREATE] User resolved: ${user.id} (${user.username})`);
@@ -52,7 +57,9 @@ const createCommand: MiniInteractionCommand = {
 		console.log(`[CREATE] User data:`, userData);
 
 		if (userData && userData.activeTicketId) {
-			console.log(`[CREATE] Found active ticket: ${userData.activeTicketId}`);
+			console.log(
+				`[CREATE] Found active ticket: ${userData.activeTicketId}`,
+			);
 			const existingTicket = await db.get(
 				`ticket:${userData.activeTicketId}`,
 			);
@@ -60,7 +67,7 @@ const createCommand: MiniInteractionCommand = {
 
 			if (existingTicket && existingTicket.status === "open") {
 				console.log(`[CREATE] User has open ticket, rejecting`);
-				return interaction.reply({
+				return interaction.editReply({
 					content:
 						"❌ You already have an open ticket. Use `/send` command in DMs to communicate with staff.",
 					flags: [InteractionReplyFlags.Ephemeral],
@@ -69,13 +76,6 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		console.log(`[CREATE] No active ticket found, proceeding...`);
-
-		// Reply immediately with @here mention
-		console.log(`[CREATE] Sending initial reply`);
-		await interaction.reply({
-			content: "@here A new ticket request has been made!",
-		});
-		console.log(`[CREATE] Initial reply sent`);
 
 		// Now check OAuth and show select menu
 		if (!userData || !userData.accessToken) {
@@ -188,11 +188,11 @@ const createCommand: MiniInteractionCommand = {
 						)
 						.toJSON();
 
-				return interaction.reply({
+				return interaction.editReply({
 					content:
 						"⚠️ You need to authorize the app first to see your mutual servers.",
 					components: [button],
-				}				);
+				});
 			}
 
 			// Parallel API calls with longer timeout
@@ -216,7 +216,7 @@ const createCommand: MiniInteractionCommand = {
 			);
 
 			if (mutualGuilds.length === 0) {
-				return interaction.reply({
+				return interaction.editReply({
 					content:
 						"❌ No mutual servers found. Make sure the bot is invited to the servers you are in.",
 				});
@@ -239,7 +239,7 @@ const createCommand: MiniInteractionCommand = {
 				)
 				.toJSON();
 
-			return interaction.reply({
+			return interaction.editReply({
 				content:
 					"Please select a server where you want to create a ticket thread:",
 				components: [menu],
@@ -260,7 +260,10 @@ const createCommand: MiniInteractionCommand = {
 				} else if (error.message.includes("Database timeout")) {
 					errorMessage =
 						"❌ Database is responding slowly. Please try again.";
-				} else if (error.message.includes("401") || error.message.includes("403")) {
+				} else if (
+					error.message.includes("401") ||
+					error.message.includes("403")
+				) {
 					errorMessage =
 						"❌ Your Discord authorization has expired. Please re-authorize the app.";
 				} else if (error.message.includes("429")) {
@@ -269,7 +272,7 @@ const createCommand: MiniInteractionCommand = {
 				}
 			}
 
-			return interaction.reply({
+			return interaction.editReply({
 				content: errorMessage,
 			});
 		}
