@@ -15,6 +15,12 @@ export const createMenuHandler: MiniInteractionComponent = {
 		const guildId = interaction.data.values[0];
 		const user = interaction.user ?? interaction.member?.user;
 
+		if (!user) {
+			return interaction.reply({
+				content: "❌ Could not resolve user.",
+			});
+		}
+
 		try {
 			// Generate unique ticket ID
 			const ticketId = Date.now().toString();

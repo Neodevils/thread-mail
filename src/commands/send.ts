@@ -54,44 +54,53 @@ const sendCommand: MiniInteractionCommand = {
 
 				if (!userData || !userData.activeTicketId) {
 					return interaction.reply({
-						content: "❌ You don't have an active ticket. Use `/create` command in a server first.",
+						content:
+							"❌ You don't have an active ticket. Use `/create` command in a server first.",
 					});
 				}
 
-				const ticketData = await db.get(`ticket:${userData.activeTicketId}`);
+				const ticketData = await db.get(
+					`ticket:${userData.activeTicketId}`,
+				);
 
 				if (!ticketData || ticketData.status !== "open") {
 					return interaction.reply({
-						content: "❌ Your ticket is not active or doesn't exist.",
+						content:
+							"❌ Your ticket is not active or doesn't exist.",
 					});
 				}
 
 				// Send message to the ticket thread
-				const response = await fetch(`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`, {
-					method: "POST",
-					headers: {
-						Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-						"Content-Type": "application/json",
+				const response = await fetch(
+					`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							content: `**From ${user.username}:** ${content}`,
+						}),
 					},
-					body: JSON.stringify({
-						content: `**From ${user.username}:** ${content}`,
-					}),
-				});
+				);
 
 				if (!response.ok) {
-					throw new Error(`Failed to send message: ${response.status}`);
+					throw new Error(
+						`Failed to send message: ${response.status}`,
+					);
 				}
 
 				return interaction.reply({
 					content: "✅ Message sent to your ticket!",
 				});
-
 			} else {
 				// Guild Usage: Staff responding to ticket
 				// Check if we're in a ticket thread
 				if (!channel || !channel.name) {
 					return interaction.reply({
-						content: "❌ This command can only be used in ticket threads.",
+						content:
+							"❌ This command can only be used in ticket threads.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
@@ -110,7 +119,8 @@ const sendCommand: MiniInteractionCommand = {
 
 				if (!ticketData || ticketData.status !== "open") {
 					return interaction.reply({
-						content: "❌ This ticket is not active or doesn't exist.",
+						content:
+							"❌ This ticket is not active or doesn't exist.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
@@ -118,53 +128,62 @@ const sendCommand: MiniInteractionCommand = {
 				// Send DM to user
 				try {
 					// Create DM channel
-					const dmResponse = await fetch(`https://discord.com/api/v10/users/@me/channels`, {
-						method: "POST",
-						headers: {
-							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-							"Content-Type": "application/json",
+					const dmResponse = await fetch(
+						`https://discord.com/api/v10/users/@me/channels`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								recipient_id: ticketData.userId,
+							}),
 						},
-						body: JSON.stringify({
-							recipient_id: ticketData.userId,
-						}),
-					});
+					);
 
 					if (!dmResponse.ok) {
-						throw new Error(`Failed to create DM: ${dmResponse.status}`);
+						throw new Error(
+							`Failed to create DM: ${dmResponse.status}`,
+						);
 					}
 
 					const dmChannel = await dmResponse.json();
 
 					// Send message to DM
-					const messageResponse = await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
-						method: "POST",
-						headers: {
-							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-							"Content-Type": "application/json",
+					const messageResponse = await fetch(
+						`https://discord.com/api/v10/channels/${dmChannel.id}/messages`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								content: `**Staff Response:** ${content}`,
+							}),
 						},
-						body: JSON.stringify({
-							content: `**Staff Response:** ${content}`,
-						}),
-					});
+					);
 
 					if (!messageResponse.ok) {
-						throw new Error(`Failed to send message: ${messageResponse.status}`);
+						throw new Error(
+							`Failed to send message: ${messageResponse.status}`,
+						);
 					}
 
 					return interaction.reply({
 						content: "✅ Response sent to user via DM!",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
-
 				} catch (dmError) {
 					console.error("DM Error:", dmError);
 					return interaction.reply({
-						content: "❌ Could not send DM to user. They may have DMs disabled.",
+						content:
+							"❌ Could not send DM to user. They may have DMs disabled.",
 						flags: [InteractionReplyFlags.Ephemeral],
 					});
 				}
 			}
-
 		} catch (error) {
 			console.error("Error in /send command:", error);
 			return interaction.reply({
