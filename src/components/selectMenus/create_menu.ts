@@ -1,7 +1,6 @@
 import {
-	ActionRowBuilder,
-	RoleSelectMenuBuilder,
-	type MiniComponentMessageActionRow,
+	InteractionReplyFlags,
+	type StringSelectInteraction,
 	type MiniInteractionComponent,
 } from "@minesa-org/mini-interaction";
 import { fetchDiscord } from "../../utils/discord.ts";
@@ -12,7 +11,7 @@ import { db } from "../../utils/database.ts";
  */
 export const createMenuHandler: MiniInteractionComponent = {
 	customId: "create:select_server",
-	handler: async (interaction: any) => {
+	handler: async (interaction: StringSelectInteraction) => {
 		const guildId = interaction.data.values[0];
 		const user = interaction.user ?? interaction.member?.user;
 
@@ -55,27 +54,12 @@ export const createMenuHandler: MiniInteractionComponent = {
 				guildName: guild.name,
 				systemChannelId,
 				threadId: thread.id,
-				status: "setup",
+				status: "active",
 			});
-
-			// Store pending guildId for the user to use in the next step
-			await db.update(user.id, {
-				pendingGuildId: guildId,
-			});
-
-			// 4. Respond and ask for staff role
-			const roleMenu =
-				new ActionRowBuilder<MiniComponentMessageActionRow>()
-					.addComponents(
-						new RoleSelectMenuBuilder()
-							.setCustomId("create:select_staff_role")
-							.setPlaceholder("Select the staff role to ping"),
-					)
-					.toJSON();
 
 			return interaction.reply({
-				content: `✅ Thread <#${thread.id}> created in **${guild.name}**!\n\nNow, please select the **Staff Role** that should be pinged when a new ticket is created.`,
-				components: [roleMenu],
+				content: `✅ Thread <#${thread.id}> created in **${guild.name}**!\n\nTicket system is now ready for this server!`,
+				flags: [InteractionReplyFlags.Ephemeral],
 			});
 		} catch (error) {
 			console.error("Error in create menu handler:", error);
@@ -86,3 +70,5 @@ export const createMenuHandler: MiniInteractionComponent = {
 		}
 	},
 };
+
+export default createMenuHandler;
