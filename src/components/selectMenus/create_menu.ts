@@ -45,11 +45,22 @@ export const createMenuHandler: MiniInteractionComponent = {
 			// Generate unique ticket ID (still using timestamp for internal use)
 			const ticketId = Date.now().toString();
 
-			// Generate case number (using timestamp mod 10000 for simplicity)
-			const caseNumber = parseInt(ticketId.slice(-4)); // Last 4 digits of timestamp
-			console.log(
-				`[CREATE] ticketId: ${ticketId}, caseNumber: ${caseNumber}`,
-			);
+			// Generate sequential case number
+			let caseNumber = 1;
+			try {
+				const counterData: any = await db.get(`counter:${guildId}`);
+				if (counterData && counterData.lastCaseNumber) {
+					caseNumber = counterData.lastCaseNumber + 1;
+				}
+				// Update counter immediately
+				await db.set(`counter:${guildId}`, {
+					lastCaseNumber: caseNumber,
+				});
+				console.log(`[CREATE] Guild ${guildId} case number: ${caseNumber}`);
+			} catch (error) {
+				console.log("Counter error:", error);
+				caseNumber = 1; // Fallback
+			}
 
 			// 1. Fetch Guild info to get system_channel_id
 			const guild = await fetchDiscord(
@@ -87,12 +98,46 @@ export const createMenuHandler: MiniInteractionComponent = {
 				`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`,
 			);
 
+			// Create webhook for the system channel (if not exists)
+			let webhookUrl = null;
+			try {
+				const webhooks = await fetchDiscord(`/channels/${systemChannelId}/webhooks`, process.env.DISCORD_BOT_TOKEN!, true);
+				let existingWebhook = webhooks.find((wh: any) => wh.name === 'TicketSystem');
+
+				if (!existingWebhook) {
+					// Create webhook using direct fetch
+					const webhookResponse = await fetch(
+						`https://discord.com/api/v10/channels/${systemChannelId}/webhooks`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								name: 'TicketSystem',
+							}),
+						}
+					);
+
+					if (webhookResponse.ok) {
+						existingWebhook = await webhookResponse.json();
+					}
+				}
+
+				webhookUrl = `https://discord.com/api/webhooks/${existingWebhook.id}/${existingWebhook.token}`;
+				console.log(`[CREATE] Created/found webhook for guild ${guildId}`);
+			} catch (webhookError) {
+				console.log("Webhook creation error:", webhookError);
+				// Continue without webhook - fallback to regular messages
+			}
+
 			// 3. Store the thread info and set up initial guild settings
 			await db.set(`guild:${guildId}`, {
 				guildId,
 				guildName: guild.name,
 				systemChannelId,
-				threadId: thread.id,
+				webhookUrl,
 				status: "active",
 			});
 

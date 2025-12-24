@@ -78,25 +78,46 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				// Send message to the ticket thread
-				const response = await fetch(
-					`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
-					{
+				// Send message to the ticket thread using webhook (if available)
+				const guildData = await db.get(`guild:${ticketData.guildId}`);
+				const webhookUrl = guildData?.webhookUrl;
+
+				if (webhookUrl) {
+					// Use webhook to send message as user
+					const webhookResponse = await fetch(webhookUrl as string, {
 						method: "POST",
 						headers: {
-							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({
-							content: `**From ${user.username}:** ${content}`,
+							content: content,
+							username: user.username,
+							avatar_url: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : undefined,
 						}),
-					},
-				);
+					});
 
-				if (!response.ok) {
-					throw new Error(
-						`Failed to send message: ${response.status}`,
+					if (!webhookResponse.ok) {
+						throw new Error(`Failed to send webhook message: ${webhookResponse.status}`);
+					}
+				} else {
+					// Fallback to regular API call
+					const response = await fetch(
+						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								content: `**From ${user.username}:** ${content}`,
+							}),
+						},
 					);
+
+					if (!response.ok) {
+						throw new Error(`Failed to send message: ${response.status}`);
+					}
 				}
 
 				return interaction.reply({
