@@ -61,7 +61,7 @@ const createCommand: MiniInteractionCommand = {
 		}
 
 		try {
-			const userGuilds: any[] = await fetchDiscord(
+			const userGuilds = await fetchDiscord(
 				"/users/@me/guilds",
 				userData.accessToken as string,
 			);
@@ -101,7 +101,7 @@ const createCommand: MiniInteractionCommand = {
 						.setCustomId("create:select_server")
 						.setPlaceholder("Select a server to create a thread")
 						.addOptions(
-							...mutualGuilds
+							mutualGuilds
 								.slice(0, 25)
 								.map((guild: any) =>
 									new StringSelectMenuOptionBuilder()
