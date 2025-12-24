@@ -104,8 +104,11 @@ const sendCommand: MiniInteractionCommand = {
 				});
 			} else {
 				// Guild Usage: Staff responding to ticket
+				console.log(`[SEND GUILD] Channel type: ${channel?.type}, name: ${channel?.name}`);
+
 				// Check if we're in a ticket thread
 				if (!channel || channel.type !== 12 || !channel.name) {
+					console.log(`[SEND GUILD] Validation failed - channel: ${!!channel}, type: ${channel?.type}, name: ${!!channel?.name}`);
 					return interaction.reply({
 						content:
 							"❌ This command can only be used in ticket threads.",

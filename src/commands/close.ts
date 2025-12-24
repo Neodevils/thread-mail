@@ -22,6 +22,8 @@ const closeCommand: MiniInteractionCommand = {
 		const user = interaction.user ?? interaction.member?.user;
 		const channel = interaction.channel;
 
+		console.log(`[CLOSE] Channel type: ${channel?.type}, name: ${channel?.name}`);
+
 		if (!user) {
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}

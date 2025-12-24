@@ -78,6 +78,8 @@ export const createMenuHandler: MiniInteractionComponent = {
 				},
 			).then((res) => res.json());
 
+			console.log(`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`);
+
 			// 3. Store the thread info and set up initial guild settings
 			await db.set(`guild:${guildId}`, {
 				guildId,
