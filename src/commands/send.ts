@@ -32,7 +32,14 @@ const sendCommand: MiniInteractionCommand = {
 		const { options, guild, channel } = interaction;
 		const user = interaction.user ?? interaction.member?.user;
 
-		console.log("User:", user?.id, "Guild:", guild?.id, "Channel:", channel?.id);
+		console.log(
+			"User:",
+			user?.id,
+			"Guild:",
+			guild?.id,
+			"Channel:",
+			channel?.id,
+		);
 
 		if (!user) {
 			console.log("No user found");
@@ -44,11 +51,6 @@ const sendCommand: MiniInteractionCommand = {
 		const content = options.getString("content")!;
 		console.log("Content:", content);
 
-		// Defer reply to acknowledge interaction within 3 seconds
-		console.log("Deferring reply...");
-		await interaction.deferReply();
-		console.log("Reply deferred");
-
 		try {
 			const isDM = !guild;
 			console.log("Is DM:", isDM);
@@ -59,7 +61,7 @@ const sendCommand: MiniInteractionCommand = {
 				console.log("User data:", userData);
 
 				if (!userData || !userData.activeTicketId) {
-					return interaction.editReply({
+					return interaction.reply({
 						content:
 							"<:Oops:1453370232277307474> You don't have an active ticket. Use </create:1453302198086664249> command in a server first.",
 					});
@@ -70,7 +72,7 @@ const sendCommand: MiniInteractionCommand = {
 				);
 
 				if (!ticketData || ticketData.status !== "open") {
-					return interaction.editReply({
+					return interaction.reply({
 						content:
 							"<:Oops:1453370232277307474> Your ticket is not active or doesn't exist.",
 					});
@@ -124,7 +126,7 @@ const sendCommand: MiniInteractionCommand = {
 					}
 				}
 
-				return interaction.editReply({
+				return interaction.reply({
 					content: "# <:thread:1453370245212536832> Message sent",
 					components: [
 						new ContainerBuilder()
@@ -145,7 +147,7 @@ const sendCommand: MiniInteractionCommand = {
 			} else {
 				console.log("In guild, checking channel...");
 				if (!channel || channel.type !== 12 || !channel.name) {
-					return interaction.editReply({
+					return interaction.reply({
 						content:
 							"<:Oops:1453370232277307474> This command can only be used in ticket threads.",
 						flags: [InteractionReplyFlags.Ephemeral],
@@ -155,7 +157,7 @@ const sendCommand: MiniInteractionCommand = {
 				// Find ticket by thread ID
 				const threadData = await db.get(`thread:${channel.id}`);
 				if (!threadData || !threadData.ticketId) {
-					return interaction.editReply({
+					return interaction.reply({
 						content:
 							"<:Oops:1453370232277307474> This is not a valid ticket thread.",
 						flags: [InteractionReplyFlags.Ephemeral],
@@ -166,7 +168,7 @@ const sendCommand: MiniInteractionCommand = {
 					`ticket:${threadData.ticketId}`,
 				);
 				if (!ticketData || ticketData.status !== "open") {
-					return interaction.editReply({
+					return interaction.reply({
 						content:
 							"<:Oops:1453370232277307474> This ticket is not active or doesn't exist.",
 						flags: [InteractionReplyFlags.Ephemeral],
@@ -219,12 +221,12 @@ const sendCommand: MiniInteractionCommand = {
 						);
 					}
 
-					return interaction.editReply({
+					return interaction.reply({
 						content: `## <:thread:1453370245212536832> Response sent to user via DM!\n>>> ${content}`,
 					});
 				} catch (dmError) {
 					console.error("DM Error:", dmError);
-					return interaction.editReply({
+					return interaction.reply({
 						content:
 							"<:Oops:1453370232277307474> Could not send DM to user. They may have DMs disabled.",
 						flags: [InteractionReplyFlags.Ephemeral],
@@ -233,7 +235,7 @@ const sendCommand: MiniInteractionCommand = {
 			}
 		} catch (error) {
 			console.error("Error in /send command:", error);
-			return interaction.editReply({
+			return interaction.reply({
 				content:
 					"<:Oops:1453370232277307474> An error occurred while sending the message.",
 			});
