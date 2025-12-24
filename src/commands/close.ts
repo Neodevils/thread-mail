@@ -65,6 +65,9 @@ const closeCommand: MiniInteractionCommand = {
 				content: `<:thread_archive_server:1453370235536281713> **Archived the ticket.**`,
 			});
 
+			// Wait 3 seconds to ensure the interaction reply is processed before archiving
+			await new Promise(resolve => setTimeout(resolve, 3000));
+
 			const userData = await db.get(`user:${ticketData.userId}`);
 			if (userData) {
 				await db.set(`user:${ticketData.userId}`, {
@@ -93,7 +96,10 @@ const closeCommand: MiniInteractionCommand = {
 			}
 
 			try {
-				console.log("[CLOSE] Attempting to send DM to user:", ticketData.userId);
+				console.log(
+					"[CLOSE] Attempting to send DM to user:",
+					ticketData.userId,
+				);
 				const dmResponse = await fetch(
 					`https://discord.com/api/v10/users/@me/channels`,
 					{
@@ -129,10 +135,16 @@ const closeCommand: MiniInteractionCommand = {
 					if (messageResponse.ok) {
 						console.log("[CLOSE] DM sent successfully");
 					} else {
-						console.log("[CLOSE] Failed to send DM message:", messageResponse.status);
+						console.log(
+							"[CLOSE] Failed to send DM message:",
+							messageResponse.status,
+						);
 					}
 				} else {
-					console.log("[CLOSE] Failed to create DM channel:", dmResponse.status);
+					console.log(
+						"[CLOSE] Failed to create DM channel:",
+						dmResponse.status,
+					);
 				}
 			} catch (dmError) {
 				console.log(
