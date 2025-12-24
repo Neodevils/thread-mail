@@ -11,8 +11,8 @@ import {
 	type CommandInteraction,
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
-import { db } from "../utils/database.js";
-import { fetchDiscord } from "../utils/discord.js";
+import { db } from "../utils/database";
+import { fetchDiscord } from "../utils/discord";
 
 const createCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()

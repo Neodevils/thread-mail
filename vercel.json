@@ -18,5 +18,6 @@
 			"maxDuration": 10,
 			"includeFiles": "{dist/**,public/pages/**}"
 		}
-	}
+	},
+	"buildCommand": "npm run build"
 }
