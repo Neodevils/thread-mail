@@ -45,6 +45,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 
 			// Generate case number (using timestamp mod 10000 for simplicity)
 			const caseNumber = parseInt(ticketId.slice(-4)); // Last 4 digits of timestamp
+			console.log(`[CREATE] ticketId: ${ticketId}, caseNumber: ${caseNumber}`);
 
 			// 1. Fetch Guild info to get system_channel_id
 			const guild = await fetchDiscord(
@@ -78,7 +79,9 @@ export const createMenuHandler: MiniInteractionComponent = {
 				},
 			).then((res) => res.json());
 
-			console.log(`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`);
+			console.log(
+				`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`,
+			);
 
 			// 3. Store the thread info and set up initial guild settings
 			await db.set(`guild:${guildId}`, {
