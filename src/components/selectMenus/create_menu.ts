@@ -100,46 +100,8 @@ export const createMenuHandler: MiniInteractionComponent = {
 				`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`,
 			);
 
-			// Create webhook for this specific thread (with delay to ensure thread is ready)
+			// Skip webhook creation for now - use regular messages
 			let webhookUrl = null;
-			try {
-				// Wait a bit for thread to be fully created
-				await new Promise(resolve => setTimeout(resolve, 1000));
-
-				console.log(
-					`[CREATE] Creating webhook for thread ${thread.id}`,
-				);
-				const webhookResponse = await fetch(
-					`https://discord.com/api/v10/channels/${thread.id}/webhooks`,
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							name: `Ticket-${caseNumber}`,
-						}),
-					},
-				);
-
-				console.log(
-					`[CREATE] Webhook creation response: ${webhookResponse.status}`,
-				);
-
-				if (webhookResponse.ok) {
-					const webhookData = await webhookResponse.json();
-					webhookUrl = `https://discord.com/api/webhooks/${webhookData.id}/${webhookData.token}`;
-					console.log(`[CREATE] Webhook created successfully: ${webhookData.id}`);
-				} else {
-					const errorText = await webhookResponse.text();
-					console.log(
-						`[CREATE] Webhook creation failed: ${webhookResponse.status} - ${errorText}`,
-					);
-				}
-			} catch (webhookError) {
-				console.log("Webhook creation error:", webhookError);
-			}
 
 			// 3. Store the thread info and set up initial guild settings
 			await db.set(`guild:${guildId}`, {

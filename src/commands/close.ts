@@ -61,7 +61,7 @@ const closeCommand: MiniInteractionCommand = {
 			}
 
 			// Reply immediately to show command is processing
-			await interaction.reply({
+			interaction.reply({
 				content: `🔒 **Closing ticket...**\n\nPlease wait while we process your request.`,
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
@@ -70,6 +70,7 @@ const closeCommand: MiniInteractionCommand = {
 			await db.update(`user:${ticketData.userId}`, {
 				activeTicketId: null,
 			});
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			// Archive and lock the thread
 			const response = await fetch(
@@ -131,30 +132,7 @@ const closeCommand: MiniInteractionCommand = {
 				);
 			}
 
-			// Delete webhook if it exists
-			if (ticketData.webhookUrl) {
-				try {
-					const webhookUrl = ticketData.webhookUrl as string;
-					const webhookMatch = webhookUrl.match(
-						/\/webhooks\/(\d+)\/(.+)$/,
-					);
-					if (webhookMatch) {
-						const webhookId = webhookMatch[1];
-						await fetch(
-							`https://discord.com/api/v10/webhooks/${webhookId}`,
-							{
-								method: "DELETE",
-								headers: {
-									Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-								},
-							},
-						);
-						console.log(`[CLOSE] Deleted webhook ${webhookId}`);
-					}
-				} catch (webhookError) {
-					console.log("Error deleting webhook:", webhookError);
-				}
-			}
+			// No webhook to delete (using regular messages)
 
 			// Delete ticket data from database after successful closure
 			try {

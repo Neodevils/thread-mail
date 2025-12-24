@@ -78,70 +78,23 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				// Send message to the ticket thread using webhook for authentic user appearance
-				console.log(
-					`[SEND DM] Using webhook: ${!!ticketData.webhookUrl}`,
+				// Send message to the ticket thread
+				const response = await fetch(
+					`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							content: `**${user.username}:** ${content}`,
+						}),
+					},
 				);
 
-				if (ticketData.webhookUrl) {
-					console.log(
-						`[SEND DM] Webhook URL: ${ticketData.webhookUrl}`,
-					);
-					const webhookResponse = await fetch(
-						ticketData.webhookUrl as string,
-						{
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-							},
-							body: JSON.stringify({
-								content: content,
-								username: user.username,
-								avatar_url: user.avatar
-									? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-									: undefined,
-							}),
-						},
-					);
-
-					console.log(
-						`[SEND DM] Webhook response status: ${webhookResponse.status}`,
-					);
-
-					if (!webhookResponse.ok) {
-						console.log(
-							`[SEND DM] Webhook failed, falling back to embed`,
-						);
-						throw new Error(
-							`Failed to send webhook message: ${webhookResponse.status}`,
-						);
-					}
-
-					console.log(`[SEND DM] Message sent via webhook`);
-				} else {
-					console.log(
-						`[SEND DM] No webhook available, using regular message`,
-					);
-					// Fallback to regular message if webhook not available
-					const response = await fetch(
-						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
-						{
-							method: "POST",
-							headers: {
-								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-								"Content-Type": "application/json",
-							},
-							body: JSON.stringify({
-								content: `**${user.username}:** ${content}`,
-							}),
-						},
-					);
-
-					if (!response.ok) {
-						throw new Error(
-							`Failed to send message: ${response.status}`,
-						);
-					}
+				if (!response.ok) {
+					throw new Error(`Failed to send message: ${response.status}`);
 				}
 
 				return interaction.reply({
