@@ -67,7 +67,10 @@ const createCommand: MiniInteractionCommand = {
 				setTimeout(() => reject(new Error("Database timeout")), 500);
 			});
 
-			const userData = (await Promise.race([dbPromise, timeoutPromise])) as any;
+			const userData = (await Promise.race([
+				dbPromise,
+				timeoutPromise,
+			])) as any;
 
 			if (!userData || !userData.accessToken) {
 				const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
@@ -76,14 +79,15 @@ const createCommand: MiniInteractionCommand = {
 					process.env.DISCORD_REDIRECT_URI!,
 				)}&scope=identify+guilds+role_connections.write`;
 
-				const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
-					.addComponents(
-						new ButtonBuilder()
-							.setLabel("Authorize App")
-							.setStyle(ButtonStyle.Link)
-							.setURL(oauthUrl),
-					)
-					.toJSON();
+				const button =
+					new ActionRowBuilder<MiniComponentMessageActionRow>()
+						.addComponents(
+							new ButtonBuilder()
+								.setLabel("Authorize App")
+								.setStyle(ButtonStyle.Link)
+								.setURL(oauthUrl),
+						)
+						.toJSON();
 
 				return interaction.reply({
 					content:
@@ -94,8 +98,18 @@ const createCommand: MiniInteractionCommand = {
 
 			// Parallel API calls with short timeout
 			const [userGuilds, botGuilds] = await Promise.all([
-				fetchDiscord("/users/@me/guilds", userData.accessToken, false, 1500),
-				fetchDiscord("/users/@me/guilds", process.env.DISCORD_BOT_TOKEN!, true, 1500),
+				fetchDiscord(
+					"/users/@me/guilds",
+					userData.accessToken,
+					false,
+					1500,
+				),
+				fetchDiscord(
+					"/users/@me/guilds",
+					process.env.DISCORD_BOT_TOKEN!,
+					true,
+					1500,
+				),
 			]);
 
 			const mutualGuilds = userGuilds.filter((ug: any) =>
