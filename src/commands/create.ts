@@ -108,13 +108,13 @@ const createCommand: MiniInteractionCommand = {
 					"/users/@me/guilds",
 					(userData as any).accessToken,
 					false,
-					1500,
+					5000,
 				),
 				fetchDiscord(
 					"/users/@me/guilds",
 					process.env.DISCORD_BOT_TOKEN!,
 					true,
-					1500,
+					3000,
 				),
 			]);
 
@@ -192,22 +192,22 @@ const createCommand: MiniInteractionCommand = {
 					content:
 						"⚠️ You need to authorize the app first to see your mutual servers.",
 					components: [button],
-				});
+				}				);
 			}
 
-			// Parallel API calls with short timeout
+			// Parallel API calls with longer timeout
 			const [userGuilds, botGuilds] = await Promise.all([
 				fetchDiscord(
 					"/users/@me/guilds",
 					(userData as any).accessToken,
 					false,
-					1500,
+					5000,
 				),
 				fetchDiscord(
 					"/users/@me/guilds",
 					process.env.DISCORD_BOT_TOKEN!,
 					true,
-					1500,
+					3000,
 				),
 			]);
 
@@ -246,9 +246,31 @@ const createCommand: MiniInteractionCommand = {
 			});
 		} catch (error) {
 			console.error("Error in /create command:", error);
+
+			let errorMessage =
+				"❌ An error occurred while fetching your servers. Please try again later.";
+
+			if (error instanceof Error) {
+				if (
+					error.message.includes("timed out") ||
+					error.message.includes("timeout")
+				) {
+					errorMessage =
+						"❌ Server list is taking too long to load. This might be due to API rate limits or network issues. Please try again in a moment.";
+				} else if (error.message.includes("Database timeout")) {
+					errorMessage =
+						"❌ Database is responding slowly. Please try again.";
+				} else if (error.message.includes("401") || error.message.includes("403")) {
+					errorMessage =
+						"❌ Your Discord authorization has expired. Please re-authorize the app.";
+				} else if (error.message.includes("429")) {
+					errorMessage =
+						"❌ Too many requests. Please wait a moment and try again.";
+				}
+			}
+
 			return interaction.reply({
-				content:
-					"❌ An error occurred while fetching your servers. Please try again later.",
+				content: errorMessage,
 			});
 		}
 	},
