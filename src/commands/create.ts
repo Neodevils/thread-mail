@@ -36,11 +36,25 @@ const createCommand: MiniInteractionCommand = {
 			});
 		}
 
-		const userTicketData = await db.get(`user:${user.id}`);
+		let userTicketData;
+		try {
+			userTicketData = await db.get(`user:${user.id}`);
+		} catch (dbError) {
+			console.error("Database error getting user ticket data:", dbError);
+			userTicketData = null; // Skip ticket check if database fails
+		}
+
 		if (userTicketData && userTicketData.activeTicketId) {
-			const existingTicket = await db.get(
-				`ticket:${userTicketData.activeTicketId}`,
-			);
+			let existingTicket;
+			try {
+				existingTicket = await db.get(
+					`ticket:${userTicketData.activeTicketId}`,
+				);
+			} catch (dbError) {
+				console.error("Database error getting ticket data:", dbError);
+				existingTicket = null; // Skip ticket check if database fails
+			}
+
 			if (existingTicket && existingTicket.status === "open") {
 				return interaction.reply({
 					components: [
@@ -65,7 +79,14 @@ const createCommand: MiniInteractionCommand = {
 			}
 		}
 
-		const userData = await db.get(user.id);
+		let userData;
+		try {
+			userData = await db.get(user.id);
+		} catch (dbError) {
+			console.error("Database error getting user data:", dbError);
+			userData = null; // Treat as unauthorized if database fails
+		}
+
 		if (!userData || !userData.accessToken) {
 			const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
 				process.env.DISCORD_APPLICATION_ID
