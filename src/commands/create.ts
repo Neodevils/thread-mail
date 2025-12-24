@@ -36,88 +36,60 @@ const createCommand: MiniInteractionCommand = {
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}
 
-		// Defer immediately to buy more time
-		await interaction.deferReply();
+		const userData = await db.get(user.id);
+		if (!userData || !userData.accessToken) {
+			const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
+				process.env.DISCORD_APPLICATION_ID
+			}&response_type=code&redirect_uri=${encodeURIComponent(
+				process.env.DISCORD_REDIRECT_URI!,
+			)}&scope=identify+guilds+role_connections.write`;
 
-		// TEMP: Skip database check for testing
-		const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
-			process.env.DISCORD_APPLICATION_ID
-		}&response_type=code&redirect_uri=${encodeURIComponent(
-			process.env.DISCORD_REDIRECT_URI!,
-		)}&scope=identify+guilds+role_connections.write`;
+			const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
+				.addComponents(
+					new ButtonBuilder()
+						.setLabel("Authorize App")
+						.setStyle(ButtonStyle.Link)
+						.setURL(oauthUrl),
+				)
+				.toJSON();
 
-		const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
-			.addComponents(
-				new ButtonBuilder()
-					.setLabel("Authorize App")
-					.setStyle(ButtonStyle.Link)
-					.setURL(oauthUrl),
-			)
-			.toJSON();
-
-		return interaction.editReply({
-			content:
-				"✅ Test: Command is working! Database check temporarily disabled.",
-			components: [button],
-		});
-
-		/*
-		try {
-			// Add timeout to database operation
-			const dbPromise = db.get(user.id);
-			const timeoutPromise = new Promise((_, reject) => {
-				setTimeout(() => reject(new Error("Database timeout")), 800);
+			return interaction.reply({
+				content:
+					"⚠️ You need to authorize the app first to see your mutual servers.",
+				components: [button],
 			});
+		}
 
-			const userData = (await Promise.race([
-				dbPromise,
-				timeoutPromise,
-			])) as any;
+		try {
+			const userGuilds: any[] = await fetchDiscord(
+				"/users/@me/guilds",
+				userData.accessToken as string,
+			);
 
-			if (!userData || !userData.accessToken) {
-				const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
-					process.env.DISCORD_APPLICATION_ID
-				}&response_type=code&redirect_uri=${encodeURIComponent(
-					process.env.DISCORD_REDIRECT_URI!,
-				)}&scope=identify+guilds+role_connections.write`;
+			const botGuildsData: any = await db.get("cache:bot_guilds");
+			let botGuilds: any[] = botGuildsData?.guilds || [];
 
-				const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
-					.addComponents(
-						new ButtonBuilder()
-							.setLabel("Authorize App")
-							.setStyle(ButtonStyle.Link)
-							.setURL(oauthUrl),
-					)
-					.toJSON();
-
-				return interaction.editReply({
-					content:
-						"⚠️ You need to authorize the app first to see your mutual servers.",
-					components: [button],
-				});
-			}
-			// Use shorter timeout to stay within Discord's 3-second interaction limit
-			const [userGuilds, botGuilds] = await Promise.all([
-				fetchDiscord(
-					"/users/@me/guilds",
-					userData.accessToken as string,
-					false,
-					2000, // 2 second timeout
-				),
-				fetchDiscord(
+			if (
+				!botGuilds.length ||
+				(botGuildsData?.cachedAt || 0) < Date.now() - 300000
+			) {
+				botGuilds = await fetchDiscord(
 					"/users/@me/guilds",
 					process.env.DISCORD_BOT_TOKEN!,
 					true,
-					2000, // 2 second timeout
-				),
-			]);
+				);
+				await db.set("cache:bot_guilds", {
+					guilds: botGuilds,
+					cachedAt: Date.now(),
+				});
+			}
 
 			const mutualGuilds = userGuilds.filter((ug: any) =>
 				botGuilds.some((bg: any) => bg.id === ug.id),
 			);
 
 			if (mutualGuilds.length === 0) {
-				return interaction.editReply({
+				return interaction.reply({
 					content:
 						"❌ No mutual servers found. Make sure the bot is invited to the servers you are in.",
 				});
@@ -129,7 +101,7 @@ const createCommand: MiniInteractionCommand = {
 						.setCustomId("create:select_server")
 						.setPlaceholder("Select a server to create a thread")
 						.addOptions(
-							mutualGuilds
+							...mutualGuilds
 								.slice(0, 25)
 								.map((guild: any) =>
 									new StringSelectMenuOptionBuilder()
@@ -140,35 +112,18 @@ const createCommand: MiniInteractionCommand = {
 				)
 				.toJSON();
 
-			return interaction.editReply({
+			return interaction.reply({
 				content:
 					"Please select a server where you want to create a ticket thread:",
 				components: [menu],
 			});
 		} catch (error) {
 			console.error("Error in /create command:", error);
-
-			let errorMessage =
-				"❌ An error occurred while fetching your servers. Please try again later.";
-
-			if (error instanceof Error) {
-				if (
-					error.message.includes("timed out") ||
-					error.message.includes("timeout")
-				) {
-					errorMessage =
-						"❌ Server list is taking too long to load. This might be due to API delays. Please try again.";
-				} else if (error.message.includes("Database timeout")) {
-					errorMessage =
-						"❌ Database is responding slowly. Please try again.";
-				}
-			}
-
-			return interaction.editReply({
-				content: errorMessage,
+			return interaction.reply({
+				content:
+					"❌ An error occurred while fetching your servers. Please try again later.",
 			});
 		}
-		*/
 	},
 };
 
