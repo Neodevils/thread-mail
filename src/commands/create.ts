@@ -39,38 +39,40 @@ const createCommand: MiniInteractionCommand = {
 		// Defer immediately to buy more time
 		await interaction.deferReply();
 
-		// Add timeout to database operation
-		const dbPromise = db.get(user.id);
-		const timeoutPromise = new Promise((_, reject) => {
-			setTimeout(() => reject(new Error("Database timeout")), 1000);
-		});
-
-		const userData = await Promise.race([dbPromise, timeoutPromise]) as any;
-
-		if (!userData || !userData.accessToken) {
-			const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
-				process.env.DISCORD_APPLICATION_ID
-			}&response_type=code&redirect_uri=${encodeURIComponent(
-				process.env.DISCORD_REDIRECT_URI!,
-			)}&scope=identify+guilds+role_connections.write`;
-
-			const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
-				.addComponents(
-					new ButtonBuilder()
-						.setLabel("Authorize App")
-						.setStyle(ButtonStyle.Link)
-						.setURL(oauthUrl),
-				)
-				.toJSON();
-
-			return interaction.editReply({
-				content:
-					"⚠️ You need to authorize the app first to see your mutual servers.",
-				components: [button],
-			});
-		}
-
 		try {
+			// Add timeout to database operation
+			const dbPromise = db.get(user.id);
+			const timeoutPromise = new Promise((_, reject) => {
+				setTimeout(() => reject(new Error("Database timeout")), 800);
+			});
+
+			const userData = (await Promise.race([
+				dbPromise,
+				timeoutPromise,
+			])) as any;
+
+			if (!userData || !userData.accessToken) {
+				const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
+					process.env.DISCORD_APPLICATION_ID
+				}&response_type=code&redirect_uri=${encodeURIComponent(
+					process.env.DISCORD_REDIRECT_URI!,
+				)}&scope=identify+guilds+role_connections.write`;
+
+				const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
+					.addComponents(
+						new ButtonBuilder()
+							.setLabel("Authorize App")
+							.setStyle(ButtonStyle.Link)
+							.setURL(oauthUrl),
+					)
+					.toJSON();
+
+				return interaction.editReply({
+					content:
+						"⚠️ You need to authorize the app first to see your mutual servers.",
+					components: [button],
+				});
+			}
 			// Use shorter timeout to stay within Discord's 3-second interaction limit
 			const [userGuilds, botGuilds] = await Promise.all([
 				fetchDiscord(
@@ -127,7 +129,10 @@ const createCommand: MiniInteractionCommand = {
 				"❌ An error occurred while fetching your servers. Please try again later.";
 
 			if (error instanceof Error) {
-				if (error.message.includes("timed out") || error.message.includes("timeout")) {
+				if (
+					error.message.includes("timed out") ||
+					error.message.includes("timeout")
+				) {
 					errorMessage =
 						"❌ Server list is taking too long to load. This might be due to API delays. Please try again.";
 				} else if (error.message.includes("Database timeout")) {
