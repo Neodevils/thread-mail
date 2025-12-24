@@ -100,6 +100,32 @@ export const createMenuHandler: MiniInteractionComponent = {
 				`[CREATE THREAD] Created thread: ${thread.id}, type: ${thread.type}, name: ${thread.name}`,
 			);
 
+			// Create webhook for this specific thread
+			let webhookUrl = null;
+			try {
+				const webhookResponse = await fetch(
+					`https://discord.com/api/v10/channels/${thread.id}/webhooks`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							name: `Ticket-${caseNumber}`,
+						}),
+					},
+				);
+
+				if (webhookResponse.ok) {
+					const webhookData = await webhookResponse.json();
+					webhookUrl = `https://discord.com/api/webhooks/${webhookData.id}/${webhookData.token}`;
+					console.log(`[CREATE] Created webhook for thread ${thread.id}`);
+				}
+			} catch (webhookError) {
+				console.log("Webhook creation error:", webhookError);
+			}
+
 			// 3. Store the thread info and set up initial guild settings
 			await db.set(`guild:${guildId}`, {
 				guildId,
@@ -116,6 +142,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 				userId: user.id,
 				username: user.username,
 				threadId: thread.id,
+				webhookUrl,
 				status: "open",
 			});
 

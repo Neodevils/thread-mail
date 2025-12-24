@@ -131,6 +131,29 @@ const closeCommand: MiniInteractionCommand = {
 				);
 			}
 
+			// Delete webhook if it exists
+			if (ticketData.webhookUrl) {
+				try {
+					const webhookUrl = ticketData.webhookUrl as string;
+					const webhookMatch = webhookUrl.match(/\/webhooks\/(\d+)\/(.+)$/);
+					if (webhookMatch) {
+						const webhookId = webhookMatch[1];
+						await fetch(
+							`https://discord.com/api/v10/webhooks/${webhookId}`,
+							{
+								method: "DELETE",
+								headers: {
+									Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								},
+							},
+						);
+						console.log(`[CLOSE] Deleted webhook ${webhookId}`);
+					}
+				} catch (webhookError) {
+					console.log("Error deleting webhook:", webhookError);
+				}
+			}
+
 			// Delete ticket data from database after successful closure
 			try {
 				await db.delete(`ticket:${threadData.ticketId}`);

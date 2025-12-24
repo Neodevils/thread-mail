@@ -78,35 +78,58 @@ const sendCommand: MiniInteractionCommand = {
 					});
 				}
 
-				// Send message to the ticket thread with user's appearance using embed
-				const userAvatar = user.avatar
-					? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-					: `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
-
-				const response = await fetch(
-					`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
-					{
+				// Send message to the ticket thread using webhook for authentic user appearance
+				if (ticketData.webhookUrl) {
+					const webhookResponse = await fetch(ticketData.webhookUrl as string, {
 						method: "POST",
 						headers: {
-							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify({
-							embeds: [{
-								description: content,
-								author: {
-									name: user.username,
-									icon_url: userAvatar,
-								},
-								timestamp: new Date().toISOString(),
-								color: 0x3498db, // Blue color for user messages
-							}],
+							content: content,
+							username: user.username,
+							avatar_url: user.avatar
+								? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+								: undefined,
 						}),
-					},
-				);
+					});
 
-				if (!response.ok) {
-					throw new Error(`Failed to send message: ${response.status}`);
+					if (!webhookResponse.ok) {
+						throw new Error(`Failed to send webhook message: ${webhookResponse.status}`);
+					}
+				} else {
+					// Fallback to embed if webhook not available
+					const userAvatar = user.avatar
+						? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+						: `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
+
+					const response = await fetch(
+						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({
+								embeds: [
+									{
+										description: content,
+										author: {
+											name: user.username,
+											icon_url: userAvatar,
+										},
+										timestamp: new Date().toISOString(),
+										color: 0x3498db, // Blue color for user messages
+									},
+								],
+							}),
+						},
+					);
+
+					if (!response.ok) {
+						throw new Error(`Failed to send message: ${response.status}`);
+					}
 				}
 
 				return interaction.reply({
@@ -178,10 +201,16 @@ const sendCommand: MiniInteractionCommand = {
 					const dmChannel = await dmResponse.json();
 
 					// Send message to DM with staff appearance
-					const botUser = await fetchDiscord(`/users/@me`, process.env.DISCORD_BOT_TOKEN!, true);
+					const botUser = await fetchDiscord(
+						`/users/@me`,
+						process.env.DISCORD_BOT_TOKEN!,
+						true,
+					);
 					const botAvatar = botUser.avatar
 						? `https://cdn.discordapp.com/avatars/${botUser.id}/${botUser.avatar}.png`
-						: `https://cdn.discordapp.com/embed/avatars/${parseInt(botUser.id) % 5}.png`;
+						: `https://cdn.discordapp.com/embed/avatars/${
+								parseInt(botUser.id) % 5
+						  }.png`;
 
 					const messageResponse = await fetch(
 						`https://discord.com/api/v10/channels/${dmChannel.id}/messages`,
@@ -192,15 +221,17 @@ const sendCommand: MiniInteractionCommand = {
 								"Content-Type": "application/json",
 							},
 							body: JSON.stringify({
-								embeds: [{
-									description: content,
-									author: {
-										name: "Staff Response",
-										icon_url: botAvatar,
+								embeds: [
+									{
+										description: content,
+										author: {
+											name: "Staff Response",
+											icon_url: botAvatar,
+										},
+										timestamp: new Date().toISOString(),
+										color: 0xe74c3c, // Red color for staff messages
 									},
-									timestamp: new Date().toISOString(),
-									color: 0xe74c3c, // Red color for staff messages
-								}],
+								],
 							}),
 						},
 					);
