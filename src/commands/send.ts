@@ -79,7 +79,10 @@ const sendCommand: MiniInteractionCommand = {
 				}
 
 				// Send message to the ticket thread using webhook for authentic user appearance
+				console.log(`[SEND DM] Using webhook: ${!!ticketData.webhookUrl}`);
+
 				if (ticketData.webhookUrl) {
+					console.log(`[SEND DM] Webhook URL: ${ticketData.webhookUrl}`);
 					const webhookResponse = await fetch(
 						ticketData.webhookUrl as string,
 						{
@@ -97,12 +100,18 @@ const sendCommand: MiniInteractionCommand = {
 						},
 					);
 
+					console.log(`[SEND DM] Webhook response status: ${webhookResponse.status}`);
+
 					if (!webhookResponse.ok) {
+						console.log(`[SEND DM] Webhook failed, falling back to embed`);
 						throw new Error(
 							`Failed to send webhook message: ${webhookResponse.status}`,
 						);
 					}
+
+					console.log(`[SEND DM] Message sent via webhook`);
 				} else {
+					console.log(`[SEND DM] No webhook available, using embed fallback`);
 					// Fallback to embed if webhook not available
 					const userAvatar = user.avatar
 						? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`

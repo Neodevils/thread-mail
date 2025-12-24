@@ -103,6 +103,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 			// Create webhook for this specific thread
 			let webhookUrl = null;
 			try {
+				console.log(`[CREATE] Creating webhook for thread ${thread.id}`);
 				const webhookResponse = await fetch(
 					`https://discord.com/api/v10/channels/${thread.id}/webhooks`,
 					{
@@ -117,12 +118,15 @@ export const createMenuHandler: MiniInteractionComponent = {
 					},
 				);
 
+				console.log(`[CREATE] Webhook creation response: ${webhookResponse.status}`);
+
 				if (webhookResponse.ok) {
 					const webhookData = await webhookResponse.json();
 					webhookUrl = `https://discord.com/api/webhooks/${webhookData.id}/${webhookData.token}`;
-					console.log(
-						`[CREATE] Created webhook for thread ${thread.id}`,
-					);
+					console.log(`[CREATE] Webhook created: ${webhookData.id}`);
+				} else {
+					const errorText = await webhookResponse.text();
+					console.log(`[CREATE] Webhook creation failed: ${errorText}`);
 				}
 			} catch (webhookError) {
 				console.log("Webhook creation error:", webhookError);
