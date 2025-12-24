@@ -5,6 +5,8 @@ import {
 	IntegrationType,
 	StringSelectMenuBuilder,
 	StringSelectMenuOptionBuilder,
+	ButtonBuilder,
+	ButtonStyle,
 	type MiniComponentMessageActionRow,
 	type CommandInteraction,
 	type MiniInteractionCommand,
@@ -12,9 +14,6 @@ import {
 import { db } from "../utils/database.js";
 import { fetchDiscord } from "../utils/discord.js";
 
-/**
- * /create command - Allows user to select a mutual server to create a ticket thread.
- */
 const createCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
 		.setName("create")
@@ -37,30 +36,46 @@ const createCommand: MiniInteractionCommand = {
 			return interaction.reply({ content: "❌ Could not resolve user." });
 		}
 
-		// 1. Get user tokens from DB
 		const userData = await db.get(user.id);
 		if (!userData || !userData.accessToken) {
+			const oauthUrl = `https://discord.com/oauth2/authorize?client_id=${
+				process.env.DISCORD_APPLICATION_ID
+			}&response_type=code&redirect_uri=${encodeURIComponent(
+				process.env.DISCORD_REDIRECT_URI!,
+			)}&scope=identify+guilds+role_connections.write`;
+
+			const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
+				.addComponents(
+					new ButtonBuilder()
+						.setLabel("Authorize App")
+						.setStyle(ButtonStyle.Link)
+						.setURL(oauthUrl),
+				)
+				.toJSON();
+
 			return interaction.reply({
 				content:
 					"⚠️ You need to authorize the app first to see your mutual servers.",
-				components: [
-					// Note: You should add a button here with a link to your OAuth URL
-				] as any,
+				components: [button],
 			});
 		}
 
+		await interaction.deferReply();
+
 		try {
-			// 2. Fetch User Guilds and Bot Guilds
-			// For production, consider caching these lists.
+			// Use shorter timeout to stay within Discord's 3-second interaction limit
 			const [userGuilds, botGuilds] = await Promise.all([
 				fetchDiscord(
 					"/users/@me/guilds",
 					userData.accessToken as string,
+					false,
+					2000, // 2 second timeout
 				),
 				fetchDiscord(
 					"/users/@me/guilds",
 					process.env.DISCORD_BOT_TOKEN!,
 					true,
+					2000, // 2 second timeout
 				),
 			]);
 
@@ -69,13 +84,12 @@ const createCommand: MiniInteractionCommand = {
 			);
 
 			if (mutualGuilds.length === 0) {
-				return interaction.reply({
+				return interaction.editReply({
 					content:
 						"❌ No mutual servers found. Make sure the bot is invited to the servers you are in.",
 				});
 			}
 
-			// 3. Build Select Menu
 			const menu = new ActionRowBuilder<MiniComponentMessageActionRow>()
 				.addComponents(
 					new StringSelectMenuBuilder()
@@ -93,16 +107,24 @@ const createCommand: MiniInteractionCommand = {
 				)
 				.toJSON();
 
-			return interaction.reply({
+			return interaction.editReply({
 				content:
 					"Please select a server where you want to create a ticket thread:",
 				components: [menu],
 			});
 		} catch (error) {
 			console.error("Error in /create command:", error);
-			return interaction.reply({
-				content:
-					"❌ An error occurred while fetching your servers. Please try again later.",
+
+			let errorMessage =
+				"❌ An error occurred while fetching your servers. Please try again later.";
+
+			if (error instanceof Error && error.message.includes("timed out")) {
+				errorMessage =
+					"❌ Server list is taking too long to load. This might be due to Discord API delays. Please try again.";
+			}
+
+			return interaction.editReply({
+				content: errorMessage,
 			});
 		}
 	},
