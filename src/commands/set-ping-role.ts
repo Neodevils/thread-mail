@@ -67,7 +67,14 @@ const setPingRoleCommand: MiniInteractionCommand = {
 
 			// Update with ping role
 			guildData.pingRoleId = roleId;
-			await db.set(`guild:${guild.id}`, guildData);
+
+			// Clean up any timestamp fields that might cause conflicts
+			// MiniDatabase automatically handles createdAt/updatedAt timestamps
+			const cleanGuildData = { ...guildData };
+			delete cleanGuildData.createdAt;
+			delete cleanGuildData.updatedAt;
+
+			await db.set(`guild:${guild.id}`, cleanGuildData);
 
 			return interaction.editReply({
 				content: `✅ Successfully set <@&${roleId}> as the role to ping when new ticket threads are created in this server.`,
