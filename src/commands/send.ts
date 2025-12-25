@@ -7,6 +7,67 @@ import {
 	type MiniInteractionCommand,
 } from "@minesa-org/mini-interaction";
 import { db } from "../utils/database.ts";
+import { fetchDiscord } from "../utils/discord.ts";
+
+/**
+ * Recreates webhook for a guild if it doesn't exist or is invalid
+ */
+async function recreateWebhookIfNeeded(guildId: string) {
+	try {
+		const guildData = await db.get(`guild:${guildId}`);
+		if (!guildData?.systemChannelId) {
+			console.log(
+				`No system channel for guild ${guildId}, skipping webhook recreation`,
+			);
+			return;
+		}
+
+		const systemChannelId = guildData.systemChannelId;
+
+		// Check existing webhooks
+		const webhooks = await fetchDiscord(
+			`/channels/${systemChannelId}/webhooks`,
+			process.env.DISCORD_BOT_TOKEN!,
+			true,
+		);
+
+		let existingWebhook = webhooks.find(
+			(wh: any) => wh.name === "TicketSystem",
+		);
+
+		if (!existingWebhook) {
+			// Create new webhook
+			const webhookResponse = await fetch(
+				`https://discord.com/api/v10/channels/${systemChannelId}/webhooks`,
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						name: "TicketSystem",
+					}),
+				},
+			);
+
+			if (webhookResponse.ok) {
+				existingWebhook = await webhookResponse.json();
+				const webhookUrl = `https://discord.com/api/webhooks/${existingWebhook.id}/${existingWebhook.token}`;
+
+				// Update guild data with new webhook
+				await db.set(`guild:${guildId}`, {
+					...guildData,
+					webhookUrl,
+				});
+
+				console.log(`Recreated webhook for guild ${guildId}`);
+			}
+		}
+	} catch (error) {
+		console.error("Error recreating webhook:", error);
+	}
+}
 
 const sendCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
@@ -64,30 +125,51 @@ const sendCommand: MiniInteractionCommand = {
 				const guildData = await db.get(`guild:${ticketData.guildId}`);
 				const webhookUrl = guildData?.webhookUrl;
 
-				if (webhookUrl) {
-					const webhookUrlWithThread = `${
-						webhookUrl as string
-					}?thread_id=${ticketData.threadId}`;
-					const webhookResponse = await fetch(webhookUrlWithThread, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							content: content,
-							username: user.username,
-							avatar_url: user.avatar
-								? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-								: undefined,
-						}),
-					});
+				// Try to use webhook for thread messaging
+				let webhookWorked = false;
 
-					if (!webhookResponse.ok) {
-						throw new Error(
-							`Failed to send webhook message: ${webhookResponse.status}`,
+				if (
+					webhookUrl &&
+					typeof webhookUrl === "string" &&
+					webhookUrl.startsWith("https://discord.com/api/webhooks/")
+				) {
+					try {
+						// Send message directly to thread using webhook
+						const webhookResponse = await fetch(
+							`${webhookUrl}?thread_id=${ticketData.threadId}`,
+							{
+								method: "POST",
+								headers: {
+									"Content-Type": "application/json",
+								},
+								body: JSON.stringify({
+									content: content,
+									username: user.username,
+									avatar_url: user.avatar
+										? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+										: undefined,
+								}),
+							},
 						);
+
+						if (webhookResponse.ok) {
+							webhookWorked = true;
+							return interaction.reply({
+								content: `### <:thread:1453370245212536832> Message sent to ticket.\n>>> ${content}`,
+							});
+						} else {
+							console.warn(
+								`Webhook failed with status ${webhookResponse.status}`,
+							);
+							// Don't recreate webhook here, just fall back to bot API
+						}
+					} catch (webhookError) {
+						console.warn("Webhook error:", webhookError);
 					}
-				} else {
+				}
+
+				// Fallback to bot API
+				if (!webhookWorked) {
 					const response = await fetch(
 						`https://discord.com/api/v10/channels/${ticketData.threadId}/messages`,
 						{

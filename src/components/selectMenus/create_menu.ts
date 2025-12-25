@@ -44,7 +44,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 								)
 								.addComponent(
 									new TextDisplayBuilder().setContent(
-										"Please use </send:1453302198086664248> command in DMs to communicate with staff.",
+										`Please use </send:1453302198086664248> command in DMs to communicate with staff.\n\nYour ticket: <#${existingTicket.threadId}>`,
 									),
 								)
 								.toJSON(),
@@ -121,21 +121,30 @@ export const createMenuHandler: MiniInteractionComponent = {
 						pingMention = `<@&${guildData.pingRoleId}>`;
 					}
 				} catch (dbError) {
-					console.log("Could not fetch guild ping role, using @here:", dbError);
+					console.log(
+						"Could not fetch guild ping role, using @here:",
+						dbError,
+					);
 				}
 
-				await fetch(`https://discord.com/api/v10/channels/${thread.id}/messages`, {
-					method: "POST",
-					headers: {
-						Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-						"Content-Type": "application/json",
+				await fetch(
+					`https://discord.com/api/v10/channels/${thread.id}/messages`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							content: `${pingMention}\n\n## <:thread_create:1453370244054777917> New Ticket #${caseNumber}\n\n**User:** ${user.username}\n**Status:** Open\n\nPlease assist this user with their inquiry.`,
+						}),
 					},
-					body: JSON.stringify({
-						content: `${pingMention}\n\n## <:thread_create:1453370244054777917> New Ticket #${caseNumber}\n\n**User:** ${user.username}\n**Status:** Open\n\nPlease assist this user with their inquiry.`,
-					}),
-				});
+				);
 			} catch (messageError) {
-				console.error("Error sending initial thread message:", messageError);
+				console.error(
+					"Error sending initial thread message:",
+					messageError,
+				);
 				// Don't fail the entire operation if the message fails
 			}
 
@@ -177,33 +186,53 @@ export const createMenuHandler: MiniInteractionComponent = {
 				console.log("Webhook creation error:", webhookError);
 			}
 
-			await db.set(`guild:${guildId}`, {
-				guildId,
-				guildName: guild.name,
-				systemChannelId,
-				webhookUrl,
-				status: "active",
-			});
+			// Save all database records atomically
+			try {
+				await db.set(`guild:${guildId}`, {
+					guildId,
+					guildName: guild.name,
+					systemChannelId,
+					webhookUrl,
+					status: "active",
+				});
 
-			await db.set(`ticket:${ticketId}`, {
-				ticketId,
-				caseNumber,
-				guildId,
-				userId: user.id,
-				username: user.username,
-				threadId: thread.id,
-				status: "open",
-			});
+				await db.set(`ticket:${ticketId}`, {
+					ticketId,
+					caseNumber,
+					guildId,
+					userId: user.id,
+					username: user.username,
+					threadId: thread.id,
+					status: "open",
+				});
 
-			await db.set(`thread:${thread.id}`, {
-				ticketId,
-			});
+				await db.set(`thread:${thread.id}`, {
+					ticketId,
+				});
 
-			// Store user's active ticket
-			await db.set(`user:${user.id}`, {
-				activeTicketId: ticketId,
-				guildId,
-			});
+				// Store user's active ticket
+				await db.set(`user:${user.id}`, {
+					activeTicketId: ticketId,
+					guildId,
+				});
+			} catch (dbError) {
+				console.error("Database save error:", dbError);
+				// Try to clean up the thread if database save failed
+				try {
+					await fetch(
+						`https://discord.com/api/v10/channels/${thread.id}`,
+						{
+							method: "DELETE",
+							headers: {
+								Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							},
+						},
+					);
+				} catch (cleanupError) {
+					console.error("Failed to clean up thread:", cleanupError);
+				}
+				throw new Error("Failed to save ticket data to database");
+			}
 
 			return interaction.update({
 				components: [
@@ -214,7 +243,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 									new TextDisplayBuilder().setContent(
 										[
 											`## <:thread:1453370245212536832> Ticket created in ${guild.name}!`,
-											"You can now send messages using </send:1453302198086664248> command in our DMs!",
+											`You can now send messages using </send:1453302198086664248> command in our DMs!\n<#${thread.id}>`,
 										].join("\n"),
 									),
 								)

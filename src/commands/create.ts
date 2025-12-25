@@ -21,7 +21,7 @@ const createCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
 		.setName("create")
 		.setDescription("Create a ticket thread in a mutual server")
-		.setContexts([CommandContext.Bot, CommandContext.DM])
+		.setContexts([CommandContext.Bot])
 		.setIntegrationTypes([IntegrationType.UserInstall])
 		.toJSON(),
 
@@ -33,32 +33,6 @@ const createCommand: MiniInteractionCommand = {
 				content: "<:Oops:1453370232277307474> Could not resolve user.",
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
-		}
-
-		// Check cooldown (30 minutes)
-		const cooldownKey = `cooldown:create:${user.id}`;
-		const now = Date.now();
-		const cooldownDuration = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-		try {
-			const lastUsed = (await db.get(cooldownKey)) as {
-				timestamp: number;
-			} | null;
-			if (
-				lastUsed &&
-				lastUsed.timestamp &&
-				now - lastUsed.timestamp < cooldownDuration
-			) {
-				const availableAt = lastUsed.timestamp + cooldownDuration;
-				return interaction.reply({
-					content: `<:Oops:1453370232277307474> You can only use this command once every 30 minutes. Try again <t:${Math.floor(
-						availableAt / 1000,
-					)}:R>.`,
-					flags: [InteractionReplyFlags.Ephemeral],
-				});
-			}
-		} catch (error) {
-			console.error("Error checking cooldown:", error);
 		}
 
 		let userTicketData;
@@ -242,14 +216,6 @@ const createCommand: MiniInteractionCommand = {
 						),
 				)
 				.toJSON();
-
-			// Set cooldown after successful command execution
-			try {
-				await db.set(cooldownKey, { timestamp: now });
-			} catch (error) {
-				console.error("Error setting cooldown:", error);
-				// Don't fail the command if cooldown setting fails
-			}
 
 			return interaction.reply({
 				components: [
