@@ -205,7 +205,7 @@ export const createMenuHandler: MiniInteractionComponent = {
 				guildId,
 			});
 
-			return interaction.reply({
+			return interaction.update({
 				components: [
 					new ContainerBuilder()
 						.addComponent(
