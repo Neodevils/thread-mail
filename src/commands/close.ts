@@ -13,17 +13,18 @@ const closeCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
 		.setName("close")
 		.setDescription("Close and archive the current ticket thread")
-		.setContexts([CommandContext.Guild])
-		.setIntegrationTypes([IntegrationType.GuildInstall])
+		.setContexts([CommandContext.Guild, CommandContext.Bot])
+		.setIntegrationTypes([IntegrationType.GuildInstall, IntegrationType.UserInstall])
 		.setDefaultMemberPermissions(MiniPermFlags.ManageThreads)
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
 		const user = interaction.user ?? interaction.member?.user;
 		const channel = interaction.channel;
+		const isDM = !interaction.guild;
 
 		console.log(
-			`[CLOSE] Channel type: ${channel?.type}, name: ${channel?.name}`,
+			`[CLOSE] Channel type: ${channel?.type}, name: ${channel?.name}, isDM: ${isDM}`,
 		);
 
 		if (!user) {
@@ -33,6 +34,84 @@ const closeCommand: MiniInteractionCommand = {
 			});
 		}
 
+		if (isDM) {
+			// Handle DM context - close user's active ticket
+			try {
+				const userData = await db.get(`user:${user.id}`);
+				if (!userData || !userData.activeTicketId) {
+					return interaction.reply({
+						content:
+							"<:Oops:1453370232277307474> You don't have an active ticket to close.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+
+				const ticketData = await db.get(`ticket:${userData.activeTicketId}`);
+				if (!ticketData) {
+					return interaction.reply({
+						content:
+							"<:Oops:1453370232277307474> Ticket data not found.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+
+				const threadData = await db.get(`thread:${ticketData.threadId}`);
+				if (!threadData) {
+					return interaction.reply({
+						content:
+							"<:Oops:1453370232277307474> Thread data not found.",
+						flags: [InteractionReplyFlags.Ephemeral],
+					});
+				}
+
+				// Archive the thread
+				const archiveResponse = await fetch(
+					`https://discord.com/api/v10/channels/${ticketData.threadId}`,
+					{
+						method: "PATCH",
+						headers: {
+							Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							locked: true,
+							archived: true,
+						}),
+					},
+				);
+
+				if (!archiveResponse.ok) {
+					throw new Error(`Failed to archive thread: ${archiveResponse.status}`);
+				}
+
+				// Update user data
+				await db.set(`user:${user.id}`, {
+					...userData,
+					activeTicketId: null,
+				});
+
+				// Clean up database
+				try {
+					await db.delete(`ticket:${userData.activeTicketId}`);
+					await db.delete(`thread:${ticketData.threadId}`);
+				} catch (deleteError) {
+					console.error("Error deleting ticket data:", deleteError);
+				}
+
+				return interaction.reply({
+					content: `<:thread_archive_user:1453370242381254687> **Your ticket has been closed!**\n\nStaff have resolved your issue. If you need further assistance, you can create a new ticket anytime using </create:1453302198086664249> command in the server.`,
+				});
+			} catch (error) {
+				console.error("Error closing ticket in DM:", error);
+				return interaction.reply({
+					content:
+						"<:Oops:1453370232277307474> Failed to close the ticket. Please try again.",
+					flags: [InteractionReplyFlags.Ephemeral],
+				});
+			}
+		}
+
+		// Handle guild context - existing logic
 		if (!channel || channel.type !== 12 || !channel.name) {
 			return interaction.reply({
 				content:

@@ -13,7 +13,6 @@ import {
 	InteractionReplyFlags,
 	ContainerBuilder,
 	TextDisplayBuilder,
-	SectionBuilder,
 } from "@minesa-org/mini-interaction";
 import { db } from "../utils/database.ts";
 import { fetchDiscord } from "../utils/discord.ts";
@@ -34,6 +33,32 @@ const createCommand: MiniInteractionCommand = {
 				content: "<:Oops:1453370232277307474> Could not resolve user.",
 				flags: [InteractionReplyFlags.Ephemeral],
 			});
+		}
+
+		// Check cooldown (30 minutes)
+		const cooldownKey = `cooldown:create:${user.id}`;
+		const now = Date.now();
+		const cooldownDuration = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+		try {
+			const lastUsed = (await db.get(cooldownKey)) as {
+				timestamp: number;
+			} | null;
+			if (
+				lastUsed &&
+				lastUsed.timestamp &&
+				now - lastUsed.timestamp < cooldownDuration
+			) {
+				const availableAt = lastUsed.timestamp + cooldownDuration;
+				return interaction.reply({
+					content: `<:Oops:1453370232277307474> You can only use this command once every 30 minutes. Try again <t:${Math.floor(
+						availableAt / 1000,
+					)}:R>.`,
+					flags: [InteractionReplyFlags.Ephemeral],
+				});
+			}
+		} catch (error) {
+			console.error("Error checking cooldown:", error);
 		}
 
 		let userTicketData;
@@ -105,12 +130,17 @@ const createCommand: MiniInteractionCommand = {
 
 			return interaction.reply({
 				content:
-					"⚠️ You need to authorize the app first to see your mutual servers.",
+					"⚠️ You have not authorized your account with the app. Use `/authorize-account` command to authorize.",
 				components: [
 					new ContainerBuilder()
 						.addComponent(
 							new TextDisplayBuilder().setContent(
-								"## <:sharedwithu:1453370234114150542> You need to authorize the app first to see your mutual servers.",
+								"## <:sharedwithu:1453370234114150542> Authorization Required",
+							),
+						)
+						.addComponent(
+							new TextDisplayBuilder().setContent(
+								"You have not authorized your account with the app. Use `/authorize-account` command to authorize.",
 							),
 						)
 						.addComponent(button)
@@ -154,17 +184,17 @@ const createCommand: MiniInteractionCommand = {
 
 					return interaction.reply({
 						content:
-							"⚠️ Your authorization has expired. Please re-authorize the app to continue.",
+							"⚠️ Your authorization has expired. Use `/authorize-account` command to re-authorize.",
 						components: [
 							new ContainerBuilder()
 								.addComponent(
 									new TextDisplayBuilder().setContent(
-										"## <:sharedwithu:1453370234114150542> Authorization Required",
+										"## <:sharedwithu:1453370234114150542> Re-authorization Required",
 									),
 								)
 								.addComponent(
 									new TextDisplayBuilder().setContent(
-										"Your previous authorization has expired. Please click the button below to re-authorize.",
+										"Your authorization has expired. Use `/authorize-account` command to re-authorize.",
 									),
 								)
 								.addComponent(button)
@@ -212,6 +242,14 @@ const createCommand: MiniInteractionCommand = {
 						),
 				)
 				.toJSON();
+
+			// Set cooldown after successful command execution
+			try {
+				await db.set(cooldownKey, { timestamp: now });
+			} catch (error) {
+				console.error("Error setting cooldown:", error);
+				// Don't fail the command if cooldown setting fails
+			}
 
 			return interaction.reply({
 				components: [
