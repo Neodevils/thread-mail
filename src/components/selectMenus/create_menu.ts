@@ -111,6 +111,34 @@ export const createMenuHandler: MiniInteractionComponent = {
 				},
 			).then((res) => res.json());
 
+			// 3. Send initial message with ping to notify staff
+			try {
+				// Check if server has a custom ping role set
+				let pingMention = "@here"; // Default fallback
+				try {
+					const guildData = await db.get(`guild:${guildId}`);
+					if (guildData && guildData.pingRoleId) {
+						pingMention = `<@&${guildData.pingRoleId}>`;
+					}
+				} catch (dbError) {
+					console.log("Could not fetch guild ping role, using @here:", dbError);
+				}
+
+				await fetch(`https://discord.com/api/v10/channels/${thread.id}/messages`, {
+					method: "POST",
+					headers: {
+						Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						content: `${pingMention}\n\n## <:thread_create:1453370244054777917> New Ticket #${caseNumber}\n\n**User:** ${user.username}\n**Status:** Open\n\nPlease assist this user with their inquiry.`,
+					}),
+				});
+			} catch (messageError) {
+				console.error("Error sending initial thread message:", messageError);
+				// Don't fail the entire operation if the message fails
+			}
+
 			// Create webhook for the system channel (if not exists)
 			let webhookUrl = null;
 			try {

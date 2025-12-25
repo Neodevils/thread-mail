@@ -21,7 +21,7 @@ const createCommand: MiniInteractionCommand = {
 	data: new CommandBuilder()
 		.setName("create")
 		.setDescription("Create a ticket thread in a mutual server")
-		.setContexts([CommandContext.Bot])
+		.setContexts([CommandContext.Bot, CommandContext.DM])
 		.setIntegrationTypes([IntegrationType.UserInstall])
 		.toJSON(),
 
