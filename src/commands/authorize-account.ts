@@ -20,7 +20,10 @@ const authorizeAccountCommand: MiniInteractionCommand = {
 			"Authorize your Discord account to access mutual servers",
 		)
 		.setContexts([CommandContext.Bot])
-		.setIntegrationTypes([IntegrationType.UserInstall])
+		.setIntegrationTypes([
+			IntegrationType.UserInstall,
+			IntegrationType.GuildInstall,
+		])
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
