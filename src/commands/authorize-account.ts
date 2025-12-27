@@ -19,15 +19,8 @@ const authorizeAccountCommand: MiniInteractionCommand = {
 		.setDescription(
 			"Authorize your Discord account to access mutual servers",
 		)
-		.setContexts([
-			CommandContext.Bot,
-			CommandContext.Guild,
-			CommandContext.DM,
-		])
-		.setIntegrationTypes([
-			IntegrationType.UserInstall,
-			IntegrationType.GuildInstall,
-		])
+		.setContexts([CommandContext.Bot])
+		.setIntegrationTypes([IntegrationType.UserInstall])
 		.toJSON(),
 
 	handler: async (interaction: CommandInteraction) => {
@@ -44,7 +37,7 @@ const authorizeAccountCommand: MiniInteractionCommand = {
 			process.env.DISCORD_APPLICATION_ID
 		}&response_type=code&redirect_uri=${encodeURIComponent(
 			process.env.DISCORD_REDIRECT_URI!,
-		)}&scope=identify+guilds+role_connections.write`;
+		)}&scope=applications.commands+identify+guilds+role_connections.write`;
 
 		const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
 			.addComponents(
