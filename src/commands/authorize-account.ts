@@ -37,7 +37,7 @@ const authorizeAccountCommand: MiniInteractionCommand = {
 			process.env.DISCORD_APPLICATION_ID
 		}&response_type=code&redirect_uri=${encodeURIComponent(
 			process.env.DISCORD_REDIRECT_URI!,
-		)}&scope=applications.commands+identify+guilds+role_connections.write`;
+		)}&scope=applications.commands+identify+guilds+role_connections.write&integration_type=1`;
 
 		const button = new ActionRowBuilder<MiniComponentMessageActionRow>()
 			.addComponents(
